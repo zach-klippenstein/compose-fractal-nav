@@ -172,7 +172,7 @@ private class FractalNavState(
     var scaledContentCoordinates: LayoutCoordinates? = null
     override val zoomFactor: Float by zoomFactorAnimatable.asState()
     val isFullyZoomedIn by derivedStateOf { zoomFactor == 1f }
-    override var zoomDirection: ZoomDirection? = null
+    override var zoomDirection: ZoomDirection? by mutableStateOf(null)
         private set
 
     override var activeChild: FractalChild? by mutableStateOf(null)
