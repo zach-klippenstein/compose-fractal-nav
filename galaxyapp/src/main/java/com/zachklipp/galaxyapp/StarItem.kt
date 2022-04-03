@@ -2,21 +2,23 @@ package com.zachklipp.galaxyapp
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Card
 import androidx.compose.material.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.size.Dimension
 import com.zachklipp.fractalnav.FractalNavChildScope
 import com.zachklipp.fractalnav.FractalNavScope
 import kotlin.math.roundToInt
@@ -42,6 +44,7 @@ fun FractalNavScope.StarItem(
                 Modifier
                     .size(64.dp)
                     .wrapContentSize()
+                    .clipToBounds()
             ) {
                 StarChild(star, universeInfo)
             }
@@ -54,8 +57,16 @@ fun FractalNavScope.StarItem(
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInfo) {
+    val planets: List<Planet> = if (isActive) {
+        remember(star, universeInfo) { universeInfo.getPlanets(star) }
+            .collectAsState()
+            .value ?: emptyList()
+    } else {
+        emptyList()
+    }
+
     PlanetarySystem(
-        planetDistributionScale = zoomFactor,
+        planetDistributionScale = { zoomFactor },
         star = {
             Column(horizontalAlignment = CenterHorizontally) {
                 Box(
@@ -71,16 +82,11 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
                     }
                 }
             }
-        }
-    ) {
-        if (isActive) {
-            val planets by remember(star, universeInfo) { universeInfo.getPlanets(star) }
-                .collectAsState()
-            planets?.forEach { planet ->
-                Column(horizontalAlignment = CenterHorizontally) {
-                    PlanetImage(planet, Modifier.weight(1f))
-                }
-            }
+        },
+        planets = planets
+    ) { planet ->
+        Column(horizontalAlignment = CenterHorizontally) {
+            PlanetImage(planet, Modifier.weight(1f).background(Color.Black, CircleShape))
         }
     }
 }

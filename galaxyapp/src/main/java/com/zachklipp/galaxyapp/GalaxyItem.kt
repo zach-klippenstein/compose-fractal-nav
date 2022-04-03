@@ -114,6 +114,7 @@ private fun GalaxyImage(galaxy: Galaxy, modifier: Modifier) {
         contentDescription = "Image of ${galaxy.name}",
         modifier = modifier,
         blendMode = BlendMode.Screen,
+        cacheOriginal = true
     )
 }
 
