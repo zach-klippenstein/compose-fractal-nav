@@ -2,7 +2,6 @@ package com.zachklipp.fractalnav
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
@@ -23,6 +22,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.*
+import com.zachklipp.galaxyapp.lerp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
@@ -34,29 +34,49 @@ import kotlin.math.roundToInt
 @Composable
 fun FractalNavHost(
     modifier: Modifier = Modifier,
-    zoomAnimationSpec: AnimationSpec<Float> = tween(1_000),
+    zoomAnimationSpec: AnimationSpec<Float> = tween(2_000),
     content: @Composable FractalNavScope.() -> Unit
 ) {
+    val updatedAnimationSpec by rememberUpdatedState(zoomAnimationSpec)
+    val state = rememberFractalNavState(zoomAnimationSpec = { updatedAnimationSpec })
+    FractalNavHost(state, modifier) {
+        content(state)
+    }
+}
+
+@Composable
+private fun rememberFractalNavState(
+    zoomAnimationSpec: () -> AnimationSpec<Float>
+): FractalNavState {
     val coroutineScope = rememberCoroutineScope()
     val state = rememberSaveable(saver = FractalNavState.Saver) {
         FractalNavState(coroutineScope, zoomAnimationSpec)
     }
-    SideEffect {
-        state.zoomAnimationSpec = zoomAnimationSpec
-    }
+    return state
+}
+
+@Composable
+private fun FractalNavHost(
+    state: FractalNavState,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
     val contentStateHolder = rememberSaveableStateHolder()
     val rootModifier = modifier
         // TODO why isn't onPlaced working??
-        .onPlaced { state.coordinates = it }
-        .onGloballyPositioned { state.coordinates = it }
+        .onPlaced { state.viewportCoordinates = it }
+        .onGloballyPositioned { state.viewportCoordinates = it }
 
     if (!state.isFullyZoomedIn) {
         contentStateHolder.SaveableStateProvider("fractal-nav-host-$currentCompositeKeyHash") {
             Box(
-                modifier = rootModifier.then(state.contentZoomModifier),
+                modifier = rootModifier
+                    .then(state.contentZoomModifier)
+                    .onPlaced { state.scaledContentCoordinates = it }
+                    .onGloballyPositioned { state.scaledContentCoordinates = it },
                 propagateMinConstraints = true
             ) {
-                content(state)
+                content()
             }
         }
     }
@@ -117,6 +137,17 @@ interface FractalNavChildScope : FractalNavScope {
     /** Null when not zooming. */
     val zoomDirection: ZoomDirection?
 
+    /**
+     * True when a child of this scope is being zoomed in or has fully-zoomed in.
+     * Always false initially.
+     */
+    val hasActiveChild: Boolean
+
+    /**
+     * When [hasActiveChild] is true, this is the zoom factor of the active child.
+     */
+    val childZoomFactor: Float
+
     /** Requests the parent of this [FractalNavChild] zoom it out and eventually deactivate it. */
     fun zoomToParent()
 }
@@ -125,46 +156,45 @@ private interface FractalParent {
     val zoomFactor: Float
     val activeChild: FractalChild?
     val zoomDirection: ZoomDirection?
+    val zoomAnimationSpec: () -> AnimationSpec<Float>
 
     fun zoomOut()
 }
 
 private class FractalNavState(
     private val coroutineScope: CoroutineScope,
-    var zoomAnimationSpec: AnimationSpec<Float>
+    override val zoomAnimationSpec: () -> AnimationSpec<Float>
 ) : FractalNavScope,
     FractalParent {
     private val children = mutableStateMapOf<String, FractalChild>()
     private val zoomFactorAnimatable = Animatable(0f)
-    var coordinates: LayoutCoordinates? = null
+    var viewportCoordinates: LayoutCoordinates? = null
+    var scaledContentCoordinates: LayoutCoordinates? = null
     override val zoomFactor: Float by zoomFactorAnimatable.asState()
     val isFullyZoomedIn by derivedStateOf { zoomFactor == 1f }
     override var zoomDirection: ZoomDirection? = null
         private set
 
     override var activeChild: FractalChild? by mutableStateOf(null)
-    var activeChildBounds: Rect? = null
-        private set
-
-    val activeChildPivot: TransformOrigin?
+    val placeholderBounds: Rect?
         get() {
-            val coords = coordinates?.takeIf { it.isAttached } ?: return null
-            val childBounds = activeChildBounds ?: return null
-            return TransformOrigin(
-                pivotFractionX = childBounds.center.x / coords.size.width,
-                pivotFractionY = childBounds.center.y / coords.size.height
-            )
+            val coords = scaledContentCoordinates?.takeIf { it.isAttached } ?: return null
+            val childCoords = activeChild?.coordinates?.takeIf { it.isAttached } ?: return null
+            return coords.localBoundingBoxOf(childCoords, clipBounds = false)
         }
+    private var childPlaceholderSize: IntSize? by mutableStateOf(null)
 
-    val activeChildScaleTarget: Offset
+    /**
+     * A pair of values representing the x and y scale factors that the content needs to be scaled
+     * by to make the placeholder fill the screen.
+     */
+    private val activeChildScaleTarget: Offset
         get() {
-            val coords = coordinates?.takeIf { it.isAttached } ?: return Offset(1f, 1f)
-            val childCoords = activeChild?.coordinates
-                ?.takeIf { it.isAttached }
-                ?: return Offset(1f, 1f)
+            val coords = viewportCoordinates?.takeIf { it.isAttached } ?: return Offset(1f, 1f)
+            val childSize = childPlaceholderSize ?: return Offset(1f, 1f)
             return Offset(
-                x = coords.size.width / childCoords.size.width.toFloat(),
-                y = coords.size.height / childCoords.size.height.toFloat()
+                x = coords.size.width / childSize.width.toFloat(),
+                y = coords.size.height / childSize.height.toFloat()
             )
         }
 
@@ -184,24 +214,38 @@ private class FractalNavState(
                 }
                 .graphicsLayer {
                     val scaleTarget = activeChildScaleTarget
-                    scaleX = 1f + (scaleTarget.x * zoomFactor)
-                    scaleY = 1f + (scaleTarget.y * zoomFactor)
-                    activeChildPivot?.let { pivot ->
-                        transformOrigin = pivot
-                        val parentCenter = coordinates!!.size.center.toOffset()
-                        val distanceToCenter = parentCenter - activeChildBounds!!.center
-                        translationX = zoomFactor * distanceToCenter.x
-                        translationY = zoomFactor * distanceToCenter.y
-                    }
+                    scaleX = lerp(1f, scaleTarget.x, zoomFactor)
+                    scaleY = lerp(1f, scaleTarget.y, zoomFactor)
+
+                    // The scale needs to happen around the center of the placeholder.
+                    val coords =
+                        scaledContentCoordinates?.takeIf { it.isAttached } ?: return@graphicsLayer
+                    val childBounds = placeholderBounds ?: return@graphicsLayer
+                    val pivot = TransformOrigin(
+                        pivotFractionX = childBounds.center.x / (coords.size.width),
+                        pivotFractionY = childBounds.center.y / (coords.size.height)
+                    )
+                    transformOrigin = pivot
+
+                    // And we need to translate so that the left edge of the placeholder will be
+                    // eventually moved to the left edge of the viewport.
+                    val parentCenter = viewportCoordinates!!.size.center.toOffset()
+                    val distanceToCenter = parentCenter - childBounds.center
+                    translationX = zoomFactor * distanceToCenter.x
+                    translationY = zoomFactor * distanceToCenter.y
                 }
         } else Modifier
 
+    /**
+     * Modifier that is applied to the active child when it's currently being zoomed and has been
+     * removed from the content composition to be composed by the host instead.
+     */
     val childZoomModifier = Modifier
         .layout { measurable, constraints ->
             // But scale the layout bounds up instead, so the child will grow to fill the space
             // previously filled by the content.
-            val childSize = activeChildBounds!!.size
-            val parentSize = coordinates!!.size.toSize()
+            val childSize = childPlaceholderSize!!.toSize()
+            val parentSize = viewportCoordinates!!.size.toSize()
             val scaledSize = lerp(childSize, parentSize, zoomFactor)
             val scaledConstraints = Constraints(
                 minWidth = scaledSize.width.roundToInt(),
@@ -214,10 +258,20 @@ private class FractalNavState(
                 constraints.constrainWidth(placeable.width),
                 constraints.constrainHeight(placeable.height)
             ) {
-                val offset = lerp(activeChildBounds!!.topLeft, Offset.Zero, zoomFactor)
-                placeable.place(
-                    offset.round()
-                )
+                val coords = viewportCoordinates!!
+                val childCoords = activeChild?.coordinates?.takeIf { it.isAttached }
+                // If the activeChild is null, that means the animation finished _just_ before this
+                // placement pass – e.g. the user could have been scrolling the content while the
+                // animation was still running.
+                if (childCoords == null) {
+                    placeable.place(IntOffset.Zero)
+                } else {
+                    val placeholderBounds =
+                        coords.localBoundingBoxOf(childCoords, clipBounds = false)
+                    placeable.place(
+                        placeholderBounds.topLeft.round()
+                    )
+                }
             }
         }
 
@@ -252,47 +306,52 @@ private class FractalNavState(
             .onGloballyPositioned { child.coordinates = it }
 
         // The active child will be composed by the host, so don't compose it here.
-        if (activeChild !== child) {
-            child.MovableContent(childModifier)
-        } else {
+        if (activeChild === child) {
             // …but put a placeholder instead to reserve the space.
-            Box(childModifier.size(activeChildBounds!!.size.run {
-                with(LocalDensity.current) {
-                    DpSize(width.toDp(), height.toDp())
-                }
-            }))
+            childPlaceholderSize?.run {
+                Box(childModifier.size(
+                    with(LocalDensity.current) {
+                        DpSize(width.toDp(), height.toDp())
+                    }
+                ))
+            }
+        } else {
+            child.MovableContent(childModifier)
         }
     }
 
     override fun zoomToChild(key: String) {
-        // Ignore requests when already zoomed.
-        if (activeChild != null) return
-
-        zoomDirection = ZoomDirection.ZoomingIn
-        activeChild = children.getOrElse(key) {
+        val requestedChild = children.getOrElse(key) {
             throw IllegalArgumentException("No child with key \"$key\".")
         }
 
-        // Capture the bounds before starting the animation since the bounds will be animated.
-        // Doing it this way makes the math simpler, but makes it weird if the content is scrolled
-        // while animating.
-        // TODO calculate the bounds dynamically and account for transforms during the animation
-        //  instead.
-        val coords = coordinates?.takeIf { it.isAttached } ?: return
-        val childCoords = activeChild?.coordinates?.takeIf { it.isAttached } ?: return
-        activeChildBounds = coords.localBoundingBoxOf(childCoords, clipBounds = false)
+        // Can't zoom into a child while a different child is currently active.
+        // However, if we're currently zooming out of a child, and that same child requested to
+        // be zoomed in again, we can cancel the zoom out and start zooming in immediately.
+        if (activeChild != null &&
+            (activeChild !== requestedChild || zoomDirection != ZoomDirection.ZoomingOut)
+        ) {
+            return
+        }
+        activeChild = requestedChild
+
+        // Capture the size before starting the animation since the child's layout node will be
+        // removed from wherever it is but we need the placeholder to preserve that space.
+        // This could probably be removed once speculative layout exists.
+        childPlaceholderSize = activeChild?.coordinates?.takeIf { it.isAttached }?.size
+        zoomDirection = ZoomDirection.ZoomingIn
 
         coroutineScope.launch {
-            zoomFactorAnimatable.animateTo(1f, zoomAnimationSpec)
+            zoomFactorAnimatable.animateTo(1f, zoomAnimationSpec())
             zoomDirection = null
         }
     }
 
     override fun zoomOut() {
-        check(activeChild != null) { "Already zoomed to parent." }
+        check(activeChild != null) { "Already zoomed out." }
         zoomDirection = ZoomDirection.ZoomingOut
         coroutineScope.launch {
-            zoomFactorAnimatable.animateTo(0f, zoomAnimationSpec)
+            zoomFactorAnimatable.animateTo(0f, zoomAnimationSpec())
             activeChild = null
             zoomDirection = null
         }
@@ -311,6 +370,7 @@ private class FractalNavState(
 
 private class FractalChild(private val parent: FractalParent) {
     private var _content: (@Composable FractalNavChildScope.() -> Unit)? by mutableStateOf(null)
+    private var refCount = 0
     var coordinates: LayoutCoordinates? = null
 
     /**
@@ -319,9 +379,20 @@ private class FractalChild(private val parent: FractalParent) {
      * the host.
      */
     private val movableContent = movableContentOf { modifier: Modifier ->
-        FractalNavHost(modifier) {
-            val scope = remember(this) { ChildScope(this) }
-            _content?.invoke(scope)
+        val childState = rememberFractalNavState(parent.zoomAnimationSpec)
+        val childScope = remember(childState) { ChildScope(childState) }
+        FractalNavHost(childState, modifier) {
+            _content?.invoke(childScope)
+
+            DisposableEffect(this) {
+                check(refCount == 0) {
+                    "Movable content was composed more than once! refCount=$refCount"
+                }
+                refCount++
+                onDispose {
+                    refCount--
+                }
+            }
         }
     }
 
@@ -335,13 +406,17 @@ private class FractalChild(private val parent: FractalParent) {
         movableContent(modifier)
     }
 
-    private inner class ChildScope(navScope: FractalNavScope) : FractalNavScope by navScope,
+    private inner class ChildScope(private val state: FractalNavState) : FractalNavScope by state,
         FractalNavChildScope {
         override val isActive: Boolean by derivedStateOf { parent.activeChild === this@FractalChild }
         override val isFullyZoomedIn: Boolean by derivedStateOf { isActive && parent.zoomFactor == 1f }
         override val zoomFactor: Float by derivedStateOf { if (isActive) parent.zoomFactor else 0f }
         override val zoomDirection: ZoomDirection?
             get() = if (isActive) parent.zoomDirection else null
+        override val hasActiveChild: Boolean
+            get() = state.activeChild !== null
+        override val childZoomFactor: Float
+            get() = state.zoomFactor
 
         override fun zoomToParent() {
             parent.zoomOut()

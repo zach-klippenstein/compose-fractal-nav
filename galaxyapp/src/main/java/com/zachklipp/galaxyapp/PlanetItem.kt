@@ -3,9 +3,11 @@ package com.zachklipp.galaxyapp
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.graphicsLayer
 import com.zachklipp.fractalnav.FractalNavChildScope
 
 @Composable
@@ -22,7 +24,12 @@ fun FractalNavChildScope.PlanetItem(
                 zoomToParent()
             }
         }
-        PlanetImage(planet, modifier)
+
+        // Spin the planet when zoomed out, but stop when zoomed in.
+        val rotationAngle by animateRotation(3_000, scale = { 1f - zoomFactor })
+        PlanetImage(planet, modifier.graphicsLayer {
+            rotationZ = rotationAngle
+        })
     }
 }
 

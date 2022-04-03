@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Card
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
@@ -35,7 +34,7 @@ fun FractalNavScope.StarItem(
         Row(
             modifier = Modifier.padding(8.dp),
             horizontalArrangement = Arrangement.Absolute.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = CenterVertically
         ) {
             FractalNavChild(
                 star.fractalKey,
@@ -89,11 +88,15 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
             }
 
             PlanetarySystem(
-                planetDistributionScale = { zoomFactor },
                 star = {
+                    // TODO why is this always starting off too small on the first composition?
                     StarImage(star, Modifier.weight(1f))
                 },
                 planets = planets,
+                // When zooming in, animate the planets out from the center.
+                orbitScale = { zoomFactor },
+                // Slow then stop animation when a child is being zoomed in.
+                orbitAnimationScale = { 1f - childZoomFactor },
                 onPlanetTouched = { planetUnderFinger = it },
                 onPlanetSelected = {
                     planetUnderFinger = -1

@@ -6,10 +6,10 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.forEachGesture
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -18,16 +18,26 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.consumePositionChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
 
 /**
  * An animated, scientifically-inaccurate model of a star and its planets.
+ *
+ * @param orbitScale A function that returns a value between 0 and 1 that controls how much the
+ * planet orbits are scaled around the center. 0 means all planets will be pinned to the center.
+ * @param orbitAnimationScale A function that returns a value between 0 and 1 that controls the
+ * speed of the orbits.
  */
 @Composable
 fun <P> PlanetarySystem(
     star: @Composable () -> Unit,
     planets: List<P>,
     modifier: Modifier = Modifier,
-    planetDistributionScale: () -> Float = { 1f },
+    orbitScale: () -> Float = { 1f },
+    orbitAnimationScale: () -> Float = { 1f },
     onPlanetTouched: ((Int) -> Unit)? = null,
     onPlanetSelected: ((Int) -> Unit)? = null,
     planetContent: @Composable (P) -> Unit
@@ -53,7 +63,7 @@ fun <P> PlanetarySystem(
                 Color.Gray,
                 radius = orbitRadius,
                 style = Stroke(),
-                alpha = 0.5f * planetDistributionScale()
+                alpha = 0.5f * orbitScale()
             )
 
             if (selectedPlanet in planetRadii.indices) {
@@ -80,7 +90,7 @@ fun <P> PlanetarySystem(
                         selectedPlanet = if (radius <= 0.3f || radius > 1f) {
                             -1
                         } else {
-                            (planets.size * (radius - 0.3f) / .7f / planetDistributionScale()).toInt()
+                            (planets.size * (radius - 0.3f) / .7f / orbitScale()).toInt()
                         }
                         onPlanetTouched?.invoke(selectedPlanet)
                         change.consumePositionChange()
@@ -104,7 +114,7 @@ fun <P> PlanetarySystem(
     ) {
         val transition = rememberInfiniteTransition()
 
-        val starAngle by transition.animateRotation(20_000)
+        val starAngle by animateRotation(20_000)
         val starTwinkleScale by transition.animateFloat(
             initialValue = 0.99f,
             targetValue = 1.01f,
@@ -115,13 +125,11 @@ fun <P> PlanetarySystem(
         )
         Box(
             Modifier
-                // Sun is twice as big as planets.
+                // Make the star twice as big as the planets.
                 .weight { 2f }
                 .centerOffsetPercent { 0f }
+                .layoutScale { 0.5f + 0.5f * (1f - orbitScale()) }
                 .graphicsLayer {
-                    val scale = 0.5f + 0.5f * (1f - planetDistributionScale())
-                    scaleX = scale
-                    scaleY = scale
                     rotationZ = -starAngle
                 }
                 .drawWithCache {
@@ -138,22 +146,21 @@ fun <P> PlanetarySystem(
         }
 
         planets.forEachIndexed { i, planet ->
-            val orbitAngle by transition.animateRotation(2_000 * (i + 1))
-            val rotationAngle by transition.animateRotation(3_000)
+            val orbitAngle by animateRotation(
+                duration = 2_000 * (i + 1),
+                scale = orbitAnimationScale
+            )
             Box(
                 Modifier
-                    .weight(planetDistributionScale)
-                    .scale(.5f)
+                    .weight(orbitScale)
                     .centerOffsetPercent {
-                        0.3f + 0.7f * (i / planets.size.toFloat() * planetDistributionScale())
+                        0.3f + 0.7f * (i / planets.size.toFloat() * orbitScale())
                     }
                     .onRadiusMeasured {
                         planetRadii[i] = it
                     }
                     .angleDegrees { -orbitAngle }
-                    .graphicsLayer {
-                        rotationZ = rotationAngle
-                    }
+                    .layoutScale { 0.5f }
             ) {
                 planetContent(planet)
             }
@@ -161,14 +168,49 @@ fun <P> PlanetarySystem(
     }
 }
 
-@Composable
-private fun InfiniteTransition.animateRotation(duration: Int) = animateFloat(
-    initialValue = 0f,
-    targetValue = 360f,
-    animationSpec = infiniteRepeatable(
-        tween(
-            durationMillis = duration,
-            easing = LinearEasing
-        )
+/**
+ * Insets and centers a layout by a [factor] of its constraints.
+ * Works around the [scale] modifier not being used correctly in calculations.
+ */
+private fun Modifier.layoutScale(factor: () -> Float): Modifier = layout { m, c ->
+    @Suppress("NAME_SHADOWING")
+    val scale = factor()
+    val constraints = Constraints(
+        minWidth = (c.minWidth * scale).roundToInt(),
+        minHeight = (c.minHeight * scale).roundToInt(),
+        maxWidth = (c.maxWidth * scale).roundToInt(),
+        maxHeight = (c.maxHeight * scale).roundToInt()
     )
-)
+    val p = m.measure(constraints)
+    layout(c.maxWidth, c.maxHeight) {
+        val center = IntOffset(c.maxWidth, c.maxHeight) / 2f
+        val pCenter = IntOffset(p.width, p.height) / 2f
+        p.place(center - pCenter)
+    }
+}
+
+/**
+ * Returns a value that will animate continuously between 0 and 360 in [duration] millis * [scale].
+ * The rotation angle is saved in the instance state.
+ */
+@Composable
+fun animateRotation(duration: Int, scale: () -> Float = { 1f }): State<Float> {
+    val angle = rememberSaveable { mutableStateOf(0f) }
+    val running by remember { derivedStateOf { scale() != 0f } }
+    if (running) {
+        LaunchedEffect(duration) {
+            var previousTime: Long = AnimationConstants.UnspecifiedTime
+            val degreesPerMilli = 360f / duration
+            while (true) {
+                withInfiniteAnimationFrameMillis { frame ->
+                    if (previousTime == AnimationConstants.UnspecifiedTime) previousTime = frame
+                    val angleChange =
+                        angle.value + degreesPerMilli * (frame - previousTime) * scale()
+                    angle.value = angleChange.mod(360f)
+                    previousTime = frame
+                }
+            }
+        }
+    }
+    return angle
+}
