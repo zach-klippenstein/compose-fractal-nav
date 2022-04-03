@@ -1,19 +1,16 @@
 package com.zachklipp.galaxyapp
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Card
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
+import androidx.compose.ui.Alignment.Companion.CenterVertically
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.BlendMode
@@ -21,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.zachklipp.fractalnav.FractalNavChildScope
 import com.zachklipp.fractalnav.FractalNavScope
+import com.zachklipp.fractalnav.ZoomDirection
 import kotlin.math.roundToInt
 
 private val Star.fractalKey get() = "star-$name"
@@ -54,7 +52,6 @@ fun FractalNavScope.StarItem(
     }
 }
 
-@OptIn(ExperimentalAnimationApi::class)
 @Composable
 private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInfo) {
     val planets: List<Planet> = if (isActive) {
@@ -64,29 +61,55 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
     } else {
         emptyList()
     }
+    var planetUnderFinger by remember { mutableStateOf(-1) }
 
-    PlanetarySystem(
-        planetDistributionScale = { zoomFactor },
-        star = {
-            Column(horizontalAlignment = CenterHorizontally) {
-                Box(
-                    propagateMinConstraints = true,
-                    contentAlignment = Center,
-                    modifier = Modifier.weight(1f)
+    Column {
+        AnimatedVisibility(isFullyZoomedIn || zoomDirection == ZoomDirection.ZoomingIn) {
+            Row(verticalAlignment = CenterVertically) {
+                BackButton()
+                Spacer(Modifier.size(8.dp))
+                Text("The ${star.name} System", Modifier.weight(1f))
+            }
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+            horizontalAlignment = CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            AnimatedVisibility(isFullyZoomedIn) {
+                Text(
+                    if (planetUnderFinger != -1) {
+                        "${planets[planetUnderFinger].name}, release to open."
+                    } else {
+                        "Tap or drag on the planets."
+                    },
+                    maxLines = 1
+                )
+            }
+
+            PlanetarySystem(
+                planetDistributionScale = { zoomFactor },
+                star = {
+                    StarImage(star, Modifier.weight(1f))
+                },
+                planets = planets,
+                onPlanetTouched = { planetUnderFinger = it },
+                onPlanetSelected = {
+                    planetUnderFinger = -1
+                    zoomToChild("planet-${planets[it].name}")
+                }
+            ) { planet ->
+                FractalNavChild(
+                    key = "planet-${planet.name}",
+                    // Since the images are drawn with the Screen blendmode, they're
+                    // translucent. We need an opaque background to block out the orbit
+                    // line.
+                    modifier = Modifier.background(Color.Black, CircleShape)
                 ) {
-                    StarImage(star, Modifier)
-                    AnimatedContent(isFullyZoomedIn) { showBack ->
-                        if (showBack) {
-                            BackButton()
-                        }
-                    }
+                    PlanetItem(planet)
                 }
             }
-        },
-        planets = planets
-    ) { planet ->
-        Column(horizontalAlignment = CenterHorizontally) {
-            PlanetImage(planet, Modifier.weight(1f).background(Color.Black, CircleShape))
         }
     }
 }
@@ -98,20 +121,6 @@ private fun StarImage(star: Star, modifier: Modifier) {
         contentDescription = "Image of ${star.name}",
         modifier = modifier,
         blendMode = BlendMode.Screen,
-    )
-}
-
-@Composable
-private fun PlanetImage(planet: Planet, modifier: Modifier) {
-    NetworkImage(
-        url = planet.imageUrl,
-        contentDescription = "Image of ${planet.name}",
-        modifier = modifier,
-        blendMode = BlendMode.Screen,
-        // The planets start off being measured only a few pixels, so Coil will cache that scaled-
-        // down image and never refresh it even when the size grows unless we explicitly cache the
-        // original size.
-        cacheOriginal = true
     )
 }
 

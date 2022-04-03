@@ -99,7 +99,7 @@ private fun FractalNavChildScope.GalaxyHero(galaxy: Galaxy, showBack: Boolean) {
             exit = fadeOut()
         ) {
             Text(
-                "${galaxy.name} Galaxy",
+                "The ${galaxy.name} Galaxy",
                 maxLines = 1,
                 style = LocalTextStyle.current.copy(shadow = Shadow(blurRadius = 5f))
             )
