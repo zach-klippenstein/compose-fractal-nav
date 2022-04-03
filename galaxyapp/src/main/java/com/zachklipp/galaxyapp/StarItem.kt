@@ -6,21 +6,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.Card
 import androidx.compose.material.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.layout.layoutId
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import coil.imageLoader
+import coil.request.ImageRequest
+import coil.size.Dimension
 import com.zachklipp.fractalnav.FractalNavChildScope
 import com.zachklipp.fractalnav.FractalNavScope
 import kotlin.math.roundToInt
@@ -49,7 +45,8 @@ fun FractalNavScope.StarItem(
             ) {
                 StarChild(star, universeInfo)
             }
-            Text(star.name)
+            // Set maxlines to 1 to avoid wrapping when close to fully zoomed-out.
+            Text(star.name, maxLines = 1)
         }
     }
 }
@@ -88,76 +85,6 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
     }
 }
 
-private val StarLayoutId = Any()
-
-@Composable
-private fun PlanetarySystem(
-    star: @Composable () -> Unit,
-    modifier: Modifier = Modifier,
-    planetSpacing: Dp = 8.dp,
-    planetDistributionScale: Float = 1f,
-    planets: @Composable () -> Unit
-) {
-    Layout(
-        modifier = modifier,
-        content = {
-            Box(
-                Modifier.layoutId(StarLayoutId),
-                propagateMinConstraints = true
-            ) {
-                star()
-            }
-            planets()
-        }
-    ) { measurables, constraints ->
-        val (starMeasurables, planetMeasurables) = measurables.partition { it.layoutId === StarLayoutId }
-        val starMeasurable = starMeasurables.single()
-
-        val minDimension = minOf(constraints.maxWidth, constraints.maxHeight)
-        // Star takes up space of 2 planets.
-        val planetCount = planetMeasurables.size
-        val totalSpacing = planetCount * planetSpacing.roundToPx()
-        val availableSpaceForPlanets = if (totalSpacing > minDimension / 2) {
-            minDimension / 2
-        } else {
-            minDimension / 2 - totalSpacing
-        }
-        val sizePerPlanet: Int = availableSpaceForPlanets / (planetCount + 2)
-        val planetConstraints = Constraints(maxWidth = sizePerPlanet, maxHeight = sizePerPlanet)
-        val planetPlaceables = planetMeasurables.map {
-            it.measure(planetConstraints)
-        }
-
-        // Only showing star, take full space.
-        val starSize = if (planetCount == 0) minDimension else {
-            lerp(minDimension, sizePerPlanet * 2, planetDistributionScale)
-        }
-        val starConstraints = Constraints(maxWidth = starSize, maxHeight = starSize)
-        val starPlaceable = starMeasurable.measure(starConstraints)
-
-        layout(minDimension, minDimension) {
-            val center = IntOffset(minDimension / 2, minDimension / 2)
-
-            // Center the star.
-            starPlaceable.place(
-                center - IntOffset(starPlaceable.width / 2, starPlaceable.height / 2)
-            )
-
-            // Place planets around it.
-            planetPlaceables.forEachIndexed { i, placeable ->
-                val x = (i + 2) * (sizePerPlanet + planetSpacing.roundToPx())
-                val scaledX = (x * planetDistributionScale).roundToInt()
-                placeable.place(
-                    center + IntOffset(scaledX, 0) - IntOffset(
-                        placeable.width / 2,
-                        placeable.height / 2
-                    )
-                )
-            }
-        }
-    }
-}
-
 @Composable
 private fun StarImage(star: Star, modifier: Modifier) {
     NetworkImage(
@@ -175,6 +102,10 @@ private fun PlanetImage(planet: Planet, modifier: Modifier) {
         contentDescription = "Image of ${planet.name}",
         modifier = modifier,
         blendMode = BlendMode.Screen,
+        // The planets start off being measured only a few pixels, so Coil will cache that scaled-
+        // down image and never refresh it even when the size grows unless we explicitly cache the
+        // original size.
+        cacheOriginal = true
     )
 }
 

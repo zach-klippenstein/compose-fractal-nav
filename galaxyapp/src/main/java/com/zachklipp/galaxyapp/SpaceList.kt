@@ -1,6 +1,5 @@
 package com.zachklipp.galaxyapp
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,12 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
- fun <T> SpaceList(items: List<T>, content: @Composable (T) -> Unit) {
+fun <T> SpaceList(
+    items: List<T>,
+    modifier: Modifier = Modifier,
+    content: @Composable (T) -> Unit
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .padding(8.dp)
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState()),
+            .fillMaxSize(),
         verticalArrangement = Arrangement.Absolute.spacedBy(8.dp)
     ) {
         items.forEach { item ->
