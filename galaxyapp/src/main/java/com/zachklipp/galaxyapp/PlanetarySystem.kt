@@ -140,7 +140,8 @@ fun <P> PlanetarySystem(
                             this@onDrawWithContent.drawContent()
                         }
                     }
-                }
+                },
+            propagateMinConstraints = true
         ) {
             star()
         }

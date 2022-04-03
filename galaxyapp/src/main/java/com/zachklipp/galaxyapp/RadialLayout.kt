@@ -102,10 +102,7 @@ fun RadialLayout(
             } else {
                 (minDimension * (data.weight!!() / totalWeight)).roundToInt()
             }
-            val weightedConstraints = Constraints(
-                maxWidth = size,
-                maxHeight = size
-            )
+            val weightedConstraints = Constraints.fixed(size, size)
             Pair(measurable.measure(weightedConstraints), data)
         }
 
