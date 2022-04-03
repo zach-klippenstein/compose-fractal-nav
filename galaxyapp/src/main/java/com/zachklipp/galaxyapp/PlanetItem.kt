@@ -1,7 +1,11 @@
 package com.zachklipp.galaxyapp
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -27,9 +31,17 @@ fun FractalNavChildScope.PlanetItem(
 
         // Spin the planet when zoomed out, but stop when zoomed in.
         val rotationAngle by animateRotation(3_000, scale = { 1f - zoomFactor })
-        PlanetImage(planet, modifier.graphicsLayer {
-            rotationZ = rotationAngle
-        })
+        PlanetImage(planet,
+            modifier
+                .aspectRatio(1f)
+                .graphicsLayer {
+                    rotationZ = rotationAngle
+                }
+                // Since the images are drawn with the Screen blendmode, they're
+                // translucent. We need an opaque background to block out the orbit
+                // line.
+                .background(MaterialTheme.colors.background, CircleShape)
+        )
     }
 }
 

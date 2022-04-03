@@ -101,7 +101,8 @@ private fun FractalNavChildScope.GalaxyHero(galaxy: Galaxy, showBack: Boolean) {
             Text(
                 "The ${galaxy.name} Galaxy",
                 maxLines = 1,
-                style = LocalTextStyle.current.copy(shadow = Shadow(blurRadius = 5f))
+                style = LocalTextStyle.current.copy(shadow = Shadow(blurRadius = 5f)),
+                modifier = Modifier.alphaByZoomFactor()
             )
         }
     }

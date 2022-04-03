@@ -150,6 +150,9 @@ interface FractalNavChildScope : FractalNavScope {
 
     /** Requests the parent of this [FractalNavChild] zoom it out and eventually deactivate it. */
     fun zoomToParent()
+
+    fun Modifier.scaleByZoomFactor(): Modifier = scaleLayout { zoomFactor }
+    fun Modifier.alphaByZoomFactor(): Modifier = graphicsLayer { alpha = zoomFactor }
 }
 
 private interface FractalParent {

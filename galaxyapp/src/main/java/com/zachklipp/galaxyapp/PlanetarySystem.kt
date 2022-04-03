@@ -77,7 +77,9 @@ fun <P> PlanetarySystem(
     }
 
     val inputModifier = if (onPlanetSelected != null && planets.isNotEmpty()) {
-        Modifier.pointerInput(planets, onPlanetSelected, onPlanetTouched) {
+        val updatedOnPlanetTouched by rememberUpdatedState(onPlanetTouched)
+        val updatedOnPlanetSelected by rememberUpdatedState(onPlanetSelected)
+        Modifier.pointerInput(planets) {
             forEachGesture {
                 awaitPointerEventScope {
                     var change: PointerInputChange? = awaitFirstDown()
@@ -92,14 +94,14 @@ fun <P> PlanetarySystem(
                         } else {
                             (planets.size * (radius - 0.3f) / .7f / orbitScale()).toInt()
                         }
-                        onPlanetTouched?.invoke(selectedPlanet)
+                        updatedOnPlanetTouched?.invoke(selectedPlanet)
                         change.consumePositionChange()
                         change = awaitDragOrCancellation(change.id)
                     }
 
                     // Pointer was either raised or cancelled.
                     if (change != null && selectedPlanet != -1) {
-                        onPlanetSelected(selectedPlanet)
+                        updatedOnPlanetSelected(selectedPlanet)
                     }
                     selectedPlanet = -1
                 }
@@ -116,8 +118,8 @@ fun <P> PlanetarySystem(
 
         val starAngle by animateRotation(20_000)
         val starTwinkleScale by transition.animateFloat(
-            initialValue = 0.99f,
-            targetValue = 1.01f,
+            initialValue = 0.95f,
+            targetValue = 1.05f,
             animationSpec = infiniteRepeatable(
                 tween(500),
                 repeatMode = RepeatMode.Reverse
@@ -128,7 +130,7 @@ fun <P> PlanetarySystem(
                 // Make the star twice as big as the planets.
                 .weight { 2f }
                 .centerOffsetPercent { 0f }
-                .layoutScale { 0.5f + 0.5f * (1f - orbitScale()) }
+                .scaleConstraints { 0.5f + 0.5f * (1f - orbitScale()) }
                 .graphicsLayer {
                     rotationZ = -starAngle
                 }
@@ -161,7 +163,7 @@ fun <P> PlanetarySystem(
                         planetRadii[i] = it
                     }
                     .angleDegrees { -orbitAngle }
-                    .layoutScale { 0.5f }
+                    .scaleConstraints { 0.5f }
             ) {
                 planetContent(planet)
             }
@@ -173,9 +175,14 @@ fun <P> PlanetarySystem(
  * Insets and centers a layout by a [factor] of its constraints.
  * Works around the [scale] modifier not being used correctly in calculations.
  */
-private fun Modifier.layoutScale(factor: () -> Float): Modifier = layout { m, c ->
+private fun Modifier.scaleConstraints(factor: () -> Float): Modifier = layout { m, c ->
     @Suppress("NAME_SHADOWING")
     val scale = factor()
+    if (scale == 0f) {
+        // Don't measure or place if it won't take any space anyway.
+        return@layout layout(0, 0) {}
+    }
+
     val constraints = Constraints(
         minWidth = (c.minWidth * scale).roundToInt(),
         minHeight = (c.minHeight * scale).roundToInt(),
