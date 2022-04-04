@@ -2,8 +2,10 @@ package com.zachklipp.fractalnav
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -170,6 +172,7 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
             }
         }
 
+    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     override fun FractalNavChild(
         key: String,
@@ -224,11 +227,15 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
                     ))
                 }
             } else {
-                child.MovableContent(childModifier)
+                child.MovableContent(
+                    childModifier
+                        .bringIntoViewRequester(child.bringIntoViewRequester)
+                )
             }
         }
     }
 
+    @OptIn(ExperimentalFoundationApi::class)
     override fun zoomToChild(key: String) {
         val requestedChild = children.getOrElse(key) {
             throw IllegalArgumentException("No child with key \"$key\".")
@@ -252,6 +259,9 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
 
         coroutineScope.launch {
             try {
+                // Try to make the child fully visible before starting zoom so the scale animation
+                // doesn't end up scaling a clipped view.
+                requestedChild.bringIntoViewRequester.bringIntoView()
                 zoomFactorAnimatable.animateTo(1f, zoomAnimationSpecFactory())
             } finally {
                 zoomDirection = null

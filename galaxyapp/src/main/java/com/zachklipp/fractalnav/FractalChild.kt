@@ -1,6 +1,8 @@
 package com.zachklipp.fractalnav
 
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -14,6 +16,7 @@ internal interface FractalParent {
     fun zoomOut()
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 internal class FractalChild(
     val key: String,
     private val parent: FractalParent
@@ -22,6 +25,7 @@ internal class FractalChild(
     private val childScope = ChildScope(childState)
     private var _content: (@Composable FractalNavChildScope.() -> Unit)? by mutableStateOf(null)
     var placeholderCoordinates: LayoutCoordinates? = null
+    val bringIntoViewRequester = BringIntoViewRequester()
 
     /**
      * A [movableContentOf] wrapper that allows all state inside the child's composable to be moved
