@@ -9,14 +9,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.zachklipp.fractalnav.FractalNavHost
+import com.zachklipp.fractalnav.FractalNavState
 
 @Composable
 @Preview
-fun App() {
+fun App(navState: FractalNavState = remember { FractalNavState() }) {
     val universeInfo = remember { UniverseInfo() }
     MaterialTheme(colors = darkColors()) {
         Surface {
-            FractalNavHost(Modifier.fillMaxSize()) {
+            FractalNavHost(
+                state = navState,
+                modifier = Modifier.fillMaxSize()
+            ) {
                 Universe(universeInfo)
             }
         }

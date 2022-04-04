@@ -31,37 +31,48 @@ import kotlin.math.roundToInt
 /**
  * A container that can host special composables defined with [FractalNavScope.FractalNavChild] that
  * can be [zoomed][FractalNavScope.zoomToChild] into and replace the content of this host.
+ *
+ * To preserve navigation state across configuration changes, create your own [FractalNavState] and
+ * store it in a retained configuration instance (e.g. an AAC `ViewModel`).
  */
+@NonRestartableComposable
 @Composable
 fun FractalNavHost(
     modifier: Modifier = Modifier,
-    zoomAnimationSpec: AnimationSpec<Float> = FractalNavState.DefaultZoomAnimationSpec,
+    state: FractalNavState = remember { FractalNavState() },
+    zoomAnimationSpec: AnimationSpec<Float> = FractalNavStateImpl.DefaultZoomAnimationSpec,
     content: @Composable FractalNavScope.() -> Unit
 ) {
-    val updatedAnimationSpec by rememberUpdatedState(zoomAnimationSpec)
-    val state = rememberFractalNavState(zoomAnimationSpec = { updatedAnimationSpec })
-    FractalNavHost(state, modifier) {
-        content(state)
-    }
+    FractalNavHost(
+        state = state,
+        modifier = modifier,
+        zoomAnimationSpecFactory = { zoomAnimationSpec },
+        content = content
+    )
 }
 
-@Composable
-private fun rememberFractalNavState(
-    zoomAnimationSpec: () -> AnimationSpec<Float>
-): FractalNavState {
-    val coroutineScope = rememberCoroutineScope()
-    val state = remember {
-        FractalNavState(coroutineScope, zoomAnimationSpec)
-    }
-    return state
-}
+/**
+ * Stores the navigation state for a [FractalNavHost].
+ * Should only be passed to a single [FractalNavHost] at a time.
+ */
+sealed interface FractalNavState
+
+fun FractalNavState(): FractalNavState = FractalNavStateImpl()
 
 @Composable
 private fun FractalNavHost(
     state: FractalNavState,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
+    modifier: Modifier,
+    zoomAnimationSpecFactory: () -> AnimationSpec<Float>,
+    content: @Composable FractalNavScope.() -> Unit
 ) {
+    state as FractalNavStateImpl
+    val coroutineScope = rememberCoroutineScope()
+    SideEffect {
+        state.coroutineScope = coroutineScope
+        state.zoomAnimationSpecFactory = zoomAnimationSpecFactory
+    }
+
     val contentStateHolder = rememberSaveableStateHolder()
     val rootModifier = modifier
         // TODO why isn't onPlaced working??
@@ -77,7 +88,7 @@ private fun FractalNavHost(
                     .onGloballyPositioned { state.scaledContentCoordinates = it },
                 propagateMinConstraints = true
             ) {
-                content()
+                content(state)
             }
         }
     }
@@ -160,16 +171,16 @@ private interface FractalParent {
     val zoomFactor: Float
     val activeChild: FractalChild?
     val zoomDirection: ZoomDirection?
-    val zoomAnimationSpec: () -> AnimationSpec<Float>
+    val zoomAnimationSpecFactory: () -> AnimationSpec<Float>
 
     fun zoomOut()
 }
 
-private class FractalNavState(
-    private val coroutineScope: CoroutineScope,
-    override val zoomAnimationSpec: () -> AnimationSpec<Float>
-) : FractalNavScope,
-    FractalParent {
+private class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalParent {
+    // These do not need to be backed by snapshot state because they're set in a side effect.
+    lateinit var coroutineScope: CoroutineScope
+    override lateinit var zoomAnimationSpecFactory: () -> AnimationSpec<Float>
+
     private val children = mutableMapOf<String, FractalChild>()
     private val zoomFactorAnimatable = Animatable(0f)
     var viewportCoordinates: LayoutCoordinates? = null
@@ -265,7 +276,7 @@ private class FractalNavState(
                 }
                 .composed {
                     // When the scale modifier stops being applied, it's not longer scaling.
-                    DisposableEffect(this@FractalNavState) {
+                    DisposableEffect(this@FractalNavStateImpl) {
                         onDispose {
                             isContentBeingScaled = false
                         }
@@ -392,7 +403,7 @@ private class FractalNavState(
         zoomDirection = ZoomDirection.ZoomingIn
 
         coroutineScope.launch {
-            zoomFactorAnimatable.animateTo(1f, zoomAnimationSpec())
+            zoomFactorAnimatable.animateTo(1f, zoomAnimationSpecFactory())
             zoomDirection = null
         }
     }
@@ -401,7 +412,7 @@ private class FractalNavState(
         check(activeChild != null) { "Already zoomed out." }
         zoomDirection = ZoomDirection.ZoomingOut
         coroutineScope.launch {
-            zoomFactorAnimatable.animateTo(0f, zoomAnimationSpec())
+            zoomFactorAnimatable.animateTo(0f, zoomAnimationSpecFactory())
             activeChild = null
             zoomDirection = null
         }
@@ -416,6 +427,8 @@ private class FractalChild(
     val key: String,
     private val parent: FractalParent
 ) {
+    private val childState = FractalNavState() as FractalNavStateImpl
+    private val childScope = ChildScope(childState)
     private var _content: (@Composable FractalNavChildScope.() -> Unit)? by mutableStateOf(null)
     var placeholderCoordinates: LayoutCoordinates? = null
 
@@ -425,9 +438,11 @@ private class FractalChild(
      * the host.
      */
     private val movableContent = movableContentOf { modifier: Modifier ->
-        val childState = rememberFractalNavState(parent.zoomAnimationSpec)
-        val childScope = remember(childState) { ChildScope(childState) }
-        FractalNavHost(childState, modifier) {
+        FractalNavHost(
+            state = childState,
+            modifier = modifier,
+            zoomAnimationSpecFactory = { parent.zoomAnimationSpecFactory() }
+        ) {
             _content?.invoke(childScope)
         }
     }
@@ -442,15 +457,22 @@ private class FractalChild(
         movableContent(modifier)
     }
 
-    private inner class ChildScope(private val state: FractalNavState) : FractalNavScope by state,
+    private inner class ChildScope(private val state: FractalNavStateImpl) :
+        FractalNavScope by state,
         FractalNavChildScope {
-        override val isActive: Boolean by derivedStateOf { parent.activeChild === this@FractalChild }
-        override val isFullyZoomedIn: Boolean by derivedStateOf { isActive && parent.zoomFactor == 1f }
-        override val zoomFactor: Float by derivedStateOf { if (isActive) parent.zoomFactor else 0f }
+        override val isActive: Boolean by derivedStateOf {
+            parent.activeChild === this@FractalChild
+        }
+        override val isFullyZoomedIn: Boolean by derivedStateOf {
+            isActive && parent.zoomFactor == 1f
+        }
+        override val zoomFactor: Float by derivedStateOf {
+            if (isActive) parent.zoomFactor else 0f
+        }
         override val zoomDirection: ZoomDirection?
             get() = if (isActive) parent.zoomDirection else null
         override val hasActiveChild: Boolean
-            get() = state.activeChild !== null
+            get() = state.activeChild != null
         override val childZoomFactor: Float
             get() = state.zoomFactor
 
