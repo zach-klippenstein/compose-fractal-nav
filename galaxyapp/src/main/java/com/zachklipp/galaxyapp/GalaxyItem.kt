@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement.Absolute.spacedBy
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Card
 import androidx.compose.material.LocalTextStyle
@@ -14,12 +15,12 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment.Companion.Center
 import androidx.compose.ui.Alignment.Companion.CenterVertically
+import androidx.compose.ui.Alignment.Companion.TopCenter
 import androidx.compose.ui.Alignment.Companion.TopStart
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.zachklipp.fractalnav.FractalNavChildScope
 import com.zachklipp.fractalnav.FractalNavScope
@@ -88,7 +89,14 @@ private fun FractalNavChildScope.GalaxyChild(galaxy: Galaxy, universeInfo: Unive
 @Composable
 private fun FractalNavChildScope.GalaxyHero(galaxy: Galaxy, showBack: Boolean) {
     Box {
-        GalaxyImage(galaxy, Modifier.fillMaxWidth())
+        GalaxyImage(
+            galaxy, Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    clip = true
+                    shape = RoundedCornerShape(10.dp * (1f - zoomFactor))
+                }
+        )
         AnimatedVisibility(showBack, Modifier.align(TopStart)) {
             BackButton()
         }
@@ -115,7 +123,8 @@ private fun GalaxyImage(galaxy: Galaxy, modifier: Modifier) {
         contentDescription = "Image of ${galaxy.name}",
         modifier = modifier,
         blendMode = BlendMode.Screen,
-        cacheOriginal = true
+        alignment = TopCenter,
+        cacheOriginal = true,
     )
 }
 

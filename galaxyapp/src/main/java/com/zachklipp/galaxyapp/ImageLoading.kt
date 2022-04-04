@@ -3,6 +3,7 @@ package com.zachklipp.galaxyapp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
@@ -31,8 +32,9 @@ fun NetworkImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.FillWidth,
+    alignment: Alignment = Alignment.Center,
     blendMode: BlendMode? = null,
-    cacheOriginal:Boolean = false
+    cacheOriginal: Boolean = false,
 ) {
     if (cacheOriginal) {
         // Warm the cache with the image as large to workaround a Coil bug that doesn't reload the
@@ -54,6 +56,7 @@ fun NetworkImage(
             .build(),
         contentDescription = contentDescription,
         contentScale = contentScale,
+        alignment = alignment,
         modifier = modifier.then(blendMode?.let(Modifier::blendMode) ?: Modifier),
     )
 }

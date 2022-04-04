@@ -13,6 +13,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -86,7 +87,12 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
                 .graphicsLayer {
                     // Radius of 0f causes a crash.
                     val blurRadius = 0.000001f + (zoomFactor * 40.dp.toPx())
-                    renderEffect = BlurEffect(blurRadius, blurRadius)
+                    renderEffect = BlurEffect(
+                        blurRadius, blurRadius,
+                        // Since this layer is also being clipped, decal gives a better look for
+                        // the gradient near the edges than the default.
+                        edgeTreatment = TileMode.Decal
+                    )
                     // Fade the content out so that if it's drawing its own background it won't
                     // blink in and out when the content enters/leaves the composition.
                     alpha = 1f - zoomFactor
