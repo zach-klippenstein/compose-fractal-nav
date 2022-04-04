@@ -2,12 +2,11 @@ package com.zachklipp.fractalnav
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.SaverScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -25,6 +24,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.*
 import com.zachklipp.galaxyapp.lerp
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -35,7 +35,7 @@ import kotlin.math.roundToInt
 @Composable
 fun FractalNavHost(
     modifier: Modifier = Modifier,
-    zoomAnimationSpec: AnimationSpec<Float> = tween(2_000),
+    zoomAnimationSpec: AnimationSpec<Float> = FractalNavState.DefaultZoomAnimationSpec,
     content: @Composable FractalNavScope.() -> Unit
 ) {
     val updatedAnimationSpec by rememberUpdatedState(zoomAnimationSpec)
@@ -50,7 +50,7 @@ private fun rememberFractalNavState(
     zoomAnimationSpec: () -> AnimationSpec<Float>
 ): FractalNavState {
     val coroutineScope = rememberCoroutineScope()
-    val state = rememberSaveable(saver = FractalNavState.Saver) {
+    val state = remember {
         FractalNavState(coroutineScope, zoomAnimationSpec)
     }
     return state
@@ -170,7 +170,7 @@ private class FractalNavState(
     override val zoomAnimationSpec: () -> AnimationSpec<Float>
 ) : FractalNavScope,
     FractalParent {
-    private val children = mutableStateMapOf<String, FractalChild>()
+    private val children = mutableMapOf<String, FractalChild>()
     private val zoomFactorAnimatable = Animatable(0f)
     var viewportCoordinates: LayoutCoordinates? = null
     var scaledContentCoordinates: LayoutCoordinates? by mutableStateOf(null)
@@ -189,6 +189,10 @@ private class FractalNavState(
      */
     private var isContentBeingScaled by mutableStateOf(false)
 
+    /**
+     * The child that is currently either zoomed in or out, or fully zoomed in. Null when fully
+     * zoomed out.
+     */
     override var activeChild: FractalChild? by mutableStateOf(null)
     val placeholderBounds: Rect?
         get() {
@@ -313,45 +317,56 @@ private class FractalNavState(
         modifier: Modifier,
         content: @Composable FractalNavChildScope.() -> Unit
     ) {
-        check(!isFullyZoomedIn) {
-            "FractalNavHost content shouldn't be composed when fully zoomed in."
-        }
+        key(this, key) {
+            check(!isFullyZoomedIn) {
+                "FractalNavHost content shouldn't be composed when fully zoomed in."
+            }
 
-        val child = children.getOrPut(key) { remember { FractalChild(parent = this) } }
-        // When this function is removed from composition because it's the active child and fully
-        // zoomed in, we want to keep its state around so we keep the same object when zooming out
-        // again. Otherwise, we don't care about this child's state so we can clean it out of the
-        // map.
-        DisposableEffect(child, key) {
-            onDispose {
-                child.placeholderCoordinates = null
-                if (!(isFullyZoomedIn && activeChild === child)) {
+            val child = remember {
+                if (activeChild?.key == key) {
+                    // If there's an active child on the first composition, that means that we're
+                    // starting a zoom-out and should move the child into the content composition
+                    // here by re-using the child's state.
+                    activeChild!!
+                } else {
+                    FractalChild(key, parent = this)
+                }
+            }
+
+            // Register the child with its key so that zoomToChild can find it.
+            DisposableEffect(child) {
+                check(key !in children) {
+                    "FractalNavChild with key \"$key\" has already been composed."
+                }
+                children[key] = child
+                onDispose {
+                    child.placeholderCoordinates = null
                     children -= key
                 }
             }
-        }
 
-        child.setContent(content)
+            child.setContent(content)
 
-        val childModifier = modifier
-            // TODO why isn't onPlaced working?
-            .onPlaced { child.placeholderCoordinates = it }
-            .onGloballyPositioned {
-                child.placeholderCoordinates = it
+            val childModifier = modifier
+                // TODO why isn't onPlaced working?
+                .onPlaced { child.placeholderCoordinates = it }
+                .onGloballyPositioned {
+                    child.placeholderCoordinates = it
+                }
+
+            // The active child will be composed by the host, so don't compose it here.
+            if (child === activeChild) {
+                // …but put a placeholder instead to reserve the space.
+                childPlaceholderSize?.run {
+                    Box(childModifier.size(
+                        with(LocalDensity.current) {
+                            DpSize(width.toDp(), height.toDp())
+                        }
+                    ))
+                }
+            } else {
+                child.MovableContent(childModifier)
             }
-
-        // The active child will be composed by the host, so don't compose it here.
-        if (activeChild === child) {
-            // …but put a placeholder instead to reserve the space.
-            childPlaceholderSize?.run {
-                Box(childModifier.size(
-                    with(LocalDensity.current) {
-                        DpSize(width.toDp(), height.toDp())
-                    }
-                ))
-            }
-        } else {
-            child.MovableContent(childModifier)
         }
     }
 
@@ -392,20 +407,16 @@ private class FractalNavState(
         }
     }
 
-    object Saver : androidx.compose.runtime.saveable.Saver<FractalNavState, Any> {
-        override fun SaverScope.save(value: FractalNavState): Any? {
-            return null
-        }
-
-        override fun restore(value: Any): FractalNavState? {
-            return null
-        }
+    companion object {
+        val DefaultZoomAnimationSpec: AnimationSpec<Float> = tween(2_000, easing = LinearEasing)
     }
 }
 
-private class FractalChild(private val parent: FractalParent) {
+private class FractalChild(
+    val key: String,
+    private val parent: FractalParent
+) {
     private var _content: (@Composable FractalNavChildScope.() -> Unit)? by mutableStateOf(null)
-    private var refCount = 0
     var placeholderCoordinates: LayoutCoordinates? = null
 
     /**
@@ -418,16 +429,6 @@ private class FractalChild(private val parent: FractalParent) {
         val childScope = remember(childState) { ChildScope(childState) }
         FractalNavHost(childState, modifier) {
             _content?.invoke(childScope)
-
-            DisposableEffect(this) {
-                check(refCount == 0) {
-                    "Movable content was composed more than once! refCount=$refCount"
-                }
-                refCount++
-                onDispose {
-                    refCount--
-                }
-            }
         }
     }
 
