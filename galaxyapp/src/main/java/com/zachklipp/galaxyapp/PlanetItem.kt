@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.graphicsLayer
 import com.zachklipp.fractalnav.FractalNavChildScope
+import com.zachklipp.fractalnav.ZoomDirection
 
 @Composable
 fun FractalNavChildScope.PlanetItem(
@@ -23,7 +24,7 @@ fun FractalNavChildScope.PlanetItem(
         contentAlignment = Alignment.TopStart,
         propagateMinConstraints = true
     ) {
-        if (isActive) {
+        if (isFullyZoomedIn || zoomDirection == ZoomDirection.ZoomingIn) {
             BackHandler {
                 zoomToParent()
             }

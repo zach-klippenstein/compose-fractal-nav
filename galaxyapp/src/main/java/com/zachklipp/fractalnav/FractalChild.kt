@@ -7,8 +7,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 
-internal interface FractalParent {
-    val childZoomFactor: Float
+internal interface FractalParent : FractalNavScope {
     val activeChild: FractalChild?
     val zoomDirection: ZoomDirection?
     val zoomAnimationSpecFactory: () -> AnimationSpec<Float>
@@ -67,7 +66,20 @@ internal class FractalChild(
         override val zoomDirection: ZoomDirection?
             get() = if (isActive) parent.zoomDirection else null
 
+        override fun zoomToChild(key: String) {
+            // An inactive child should never have zoomed-in children, so if we're about to become
+            // inactive we need to switch to zooming in first.
+            if (zoomDirection == ZoomDirection.ZoomingOut) {
+                parent.zoomToChild(this@FractalChild.key)
+            }
+            state.zoomToChild(key)
+        }
+
         override fun zoomToParent() {
+            if (state.hasActiveChild) {
+                // A zoomed-out child should never have zoomed-in descendents.
+                state.zoomOut()
+            }
             parent.zoomOut()
         }
     }

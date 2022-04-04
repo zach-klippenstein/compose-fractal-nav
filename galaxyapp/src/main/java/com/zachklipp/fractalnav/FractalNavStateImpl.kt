@@ -286,7 +286,9 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
     }
 
     override fun zoomOut() {
-        check(activeChild != null) { "Already zoomed out." }
+        // If already zooming or zoomed out, do nothing.
+        if (activeChild == null || zoomDirection == ZoomDirection.ZoomingOut) return
+
         zoomDirection = ZoomDirection.ZoomingOut
         coroutineScope.launch {
             try {
