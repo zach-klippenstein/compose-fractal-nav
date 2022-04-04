@@ -11,6 +11,17 @@ enum class ZoomDirection {
 
 interface FractalNavScope {
     /**
+     * True when a child of this scope is being zoomed in or has fully-zoomed in.
+     * Always false initially.
+     */
+    val hasActiveChild: Boolean
+
+    /**
+     * When [hasActiveChild] is true, this is the zoom factor of the active child.
+     */
+    val childZoomFactor: Float
+
+    /**
      * Defines a child composable that can be zoomed into by calling [zoomToChild].
      * The [content] of this function is automatically placed inside its own [FractalNavHost], and
      * so can define its own children.
@@ -54,17 +65,6 @@ interface FractalNavChildScope : FractalNavScope {
 
     /** Null when not zooming. */
     val zoomDirection: ZoomDirection?
-
-    /**
-     * True when a child of this scope is being zoomed in or has fully-zoomed in.
-     * Always false initially.
-     */
-    val hasActiveChild: Boolean
-
-    /**
-     * When [hasActiveChild] is true, this is the zoom factor of the active child.
-     */
-    val childZoomFactor: Float
 
     /** Requests the parent of this [FractalNavChild] zoom it out and eventually deactivate it. */
     fun zoomToParent()

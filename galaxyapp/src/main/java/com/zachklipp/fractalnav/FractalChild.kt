@@ -8,7 +8,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 
 internal interface FractalParent {
-    val zoomFactor: Float
+    val childZoomFactor: Float
     val activeChild: FractalChild?
     val zoomDirection: ZoomDirection?
     val zoomAnimationSpecFactory: () -> AnimationSpec<Float>
@@ -59,17 +59,13 @@ internal class FractalChild(
             parent.activeChild === this@FractalChild
         }
         override val isFullyZoomedIn: Boolean by derivedStateOf {
-            isActive && parent.zoomFactor == 1f
+            isActive && parent.childZoomFactor == 1f
         }
         override val zoomFactor: Float by derivedStateOf {
-            if (isActive) parent.zoomFactor else 0f
+            if (isActive) parent.childZoomFactor else 0f
         }
         override val zoomDirection: ZoomDirection?
             get() = if (isActive) parent.zoomDirection else null
-        override val hasActiveChild: Boolean
-            get() = state.activeChild != null
-        override val childZoomFactor: Float
-            get() = state.zoomFactor
 
         override fun zoomToParent() {
             parent.zoomOut()

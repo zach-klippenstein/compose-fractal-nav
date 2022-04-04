@@ -34,12 +34,16 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
 
     private val children = mutableMapOf<String, FractalChild>()
     private val zoomFactorAnimatable = Animatable(0f)
-    var viewportCoordinates: LayoutCoordinates? = null
-    var scaledContentCoordinates: LayoutCoordinates? by mutableStateOf(null)
-    override val zoomFactor: Float by zoomFactorAnimatable.asState()
+    private val zoomFactor: Float by zoomFactorAnimatable.asState()
     val isFullyZoomedIn by derivedStateOf { zoomFactor == 1f }
     override var zoomDirection: ZoomDirection? by mutableStateOf(null)
         private set
+
+    var viewportCoordinates: LayoutCoordinates? = null
+    var scaledContentCoordinates: LayoutCoordinates? by mutableStateOf(null)
+
+    override val hasActiveChild: Boolean get() = activeChild != null
+    override val childZoomFactor: Float get() = zoomFactor
 
     /**
      * The first time the content, and thus this modifier, is composed after
