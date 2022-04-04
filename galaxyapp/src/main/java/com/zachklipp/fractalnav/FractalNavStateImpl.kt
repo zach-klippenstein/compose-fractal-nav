@@ -264,10 +264,13 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
                 requestedChild.bringIntoViewRequester.bringIntoView()
                 zoomFactorAnimatable.animateTo(1f, zoomAnimationSpecFactory())
             } finally {
-                zoomDirection = null
-                // Do this last since it can suspend and we want to make sure the other states are
-                // updated asap.
-                zoomFactorAnimatable.snapTo(1f)
+                // If we weren't cancelled by an opposing animation, jump to the end state.
+                if (zoomDirection == ZoomDirection.ZoomingIn) {
+                    zoomDirection = null
+                    // Do this last since it can suspend and we want to make sure the other states are
+                    // updated asap.
+                    zoomFactorAnimatable.snapTo(1f)
+                }
             }
         }
     }
@@ -279,11 +282,14 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
             try {
                 zoomFactorAnimatable.animateTo(0f, zoomAnimationSpecFactory())
             } finally {
-                activeChild = null
-                zoomDirection = null
-                // Do this last since it can suspend and we want to make sure the other states are
-                // updated asap.
-                zoomFactorAnimatable.snapTo(0f)
+                // If we weren't cancelled by an opposing animation, jump to the end state.
+                if (zoomDirection == ZoomDirection.ZoomingOut) {
+                    activeChild = null
+                    zoomDirection = null
+                    // Do this last since it can suspend and we want to make sure the other states are
+                    // updated asap.
+                    zoomFactorAnimatable.snapTo(0f)
+                }
             }
         }
     }
