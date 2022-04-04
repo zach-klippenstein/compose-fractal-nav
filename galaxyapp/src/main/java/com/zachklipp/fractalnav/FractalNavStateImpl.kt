@@ -2,8 +2,6 @@ package com.zachklipp.fractalnav
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
@@ -55,7 +53,7 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
      * zoomed out.
      */
     override var activeChild: FractalChild? by mutableStateOf(null)
-    val placeholderBounds: Rect?
+    private val placeholderBounds: Rect?
         get() {
             val coords = scaledContentCoordinates?.takeIf { it.isAttached } ?: return null
             val childCoords =
@@ -253,8 +251,14 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
         zoomDirection = ZoomDirection.ZoomingIn
 
         coroutineScope.launch {
-            zoomFactorAnimatable.animateTo(1f, zoomAnimationSpecFactory())
-            zoomDirection = null
+            try {
+                zoomFactorAnimatable.animateTo(1f, zoomAnimationSpecFactory())
+            } finally {
+                zoomDirection = null
+                // Do this last since it can suspend and we want to make sure the other states are
+                // updated asap.
+                zoomFactorAnimatable.snapTo(1f)
+            }
         }
     }
 
@@ -262,9 +266,15 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
         check(activeChild != null) { "Already zoomed out." }
         zoomDirection = ZoomDirection.ZoomingOut
         coroutineScope.launch {
-            zoomFactorAnimatable.animateTo(0f, zoomAnimationSpecFactory())
-            activeChild = null
-            zoomDirection = null
+            try {
+                zoomFactorAnimatable.animateTo(0f, zoomAnimationSpecFactory())
+            } finally {
+                activeChild = null
+                zoomDirection = null
+                // Do this last since it can suspend and we want to make sure the other states are
+                // updated asap.
+                zoomFactorAnimatable.snapTo(0f)
+            }
         }
     }
 }
