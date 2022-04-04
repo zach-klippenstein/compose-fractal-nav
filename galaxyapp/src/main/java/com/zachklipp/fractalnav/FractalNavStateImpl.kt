@@ -10,7 +10,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.TileMode
@@ -60,13 +59,6 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
      * zoomed out.
      */
     override var activeChild: FractalChild? by mutableStateOf(null)
-    private val placeholderBounds: Rect?
-        get() {
-            val coords = scaledContentCoordinates?.takeIf { it.isAttached } ?: return null
-            val childCoords =
-                activeChild?.placeholderCoordinates?.takeIf { it.isAttached } ?: return null
-            return coords.localBoundingBoxOf(childCoords, clipBounds = false)
-        }
     private var childPlaceholderSize: IntSize? by mutableStateOf(null)
 
     /**
@@ -86,35 +78,29 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
     val contentZoomModifier
         get() = if (activeChild != null && !isFullyZoomedIn) {
             Modifier
-                // The blur should not scale with the rest of the content, so it needs to be put
-                // in a separate layer.
                 .graphicsLayer {
-                    // Radius of 0f causes a crash.
-                    val blurRadius = 0.000001f + (zoomFactor * 40.dp.toPx())
-                    renderEffect = BlurEffect(
-                        blurRadius, blurRadius,
-                        // Since this layer is also being clipped, decal gives a better look for
-                        // the gradient near the edges than the default.
-                        edgeTreatment = TileMode.Decal
-                    )
-                    // Fade the content out so that if it's drawing its own background it won't
-                    // blink in and out when the content enters/leaves the composition.
-                    alpha = 1f - zoomFactor
-                    clip = true
-                }
-                .graphicsLayer {
-                    // If there's an active child but the content's not being scaled it means
-                    // we're on the first frame of a zoom-out and the scale couldn't be
-                    // calculated yet, so the content is in the wrong place, and we shouldn't
-                    // draw it.
-                    alpha = 0f
+                    // Somehow, even though this modifier should immediately be removed when
+                    // activeChild is set to null, it's still running this block so we can just exit
+                    // early in that case. Relatedly, it seems that if we *don't* return early,
+                    // the snapshot system will throw a ConcurrentModificationException.
+                    if (activeChild == null) return@graphicsLayer
 
                     // The scale needs to happen around the center of the placeholder.
-                    val coords =
-                        scaledContentCoordinates?.takeIf { it.isAttached } ?: return@graphicsLayer
-                    val childBounds = placeholderBounds ?: return@graphicsLayer
-                    // Ok, we have enough information to calculate the scale, so we can draw.
-                    alpha = 1f
+                    val coords = scaledContentCoordinates?.takeIf { it.isAttached }
+                    val childCoords = activeChild?.placeholderCoordinates?.takeIf { it.isAttached }
+                    val childBounds = childCoords?.let {
+                        coords?.localBoundingBoxOf(childCoords, clipBounds = false)
+                    }
+
+                    if (coords == null || childBounds == null) {
+                        // If there's an active child but the content's not being scaled it means
+                        // we're on the first frame of a zoom-out and the scale couldn't be
+                        // calculated yet, so the content is in the wrong place, and we shouldn't
+                        // draw it.
+                        alpha = 0f
+                        isContentBeingScaled = false
+                        return@graphicsLayer
+                    }
                     isContentBeingScaled = true
 
                     val scaleTarget = activeChildScaleTarget
@@ -133,6 +119,21 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
                     val distanceToCenter = parentCenter - childBounds.center
                     translationX = zoomFactor * distanceToCenter.x
                     translationY = zoomFactor * distanceToCenter.y
+
+                    // Fade the content out so that if it's drawing its own background it won't
+                    // blink in and out when the content enters/leaves the composition.
+                    alpha = 1f - zoomFactor
+
+                    // Radius of 0f causes a crash.
+                    renderEffect = BlurEffect(
+                        // Swap the x and y scale values for the blur radius so the blur scales
+                        // squarely, and not proportionally with the rest of the layer.
+                        radiusX = 0.000001f + (zoomFactor * scaleTarget.y),
+                        radiusY = 0.000001f + (zoomFactor * scaleTarget.x),
+                        // Since this layer is also being clipped, decal gives a better look for
+                        // the gradient near the edges than the default.
+                        edgeTreatment = TileMode.Decal
+                    )
                 }
                 .composed {
                     // When the scale modifier stops being applied, it's not longer scaling.
@@ -172,13 +173,14 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
                 // If the activeChild is null, that means the animation finished _just_ before this
                 // placement pass – e.g. the user could have been scrolling the content while the
                 // animation was still running.
-                if (childCoords == null || !isContentBeingScaled) {
-                    placeable.place(IntOffset.Zero)
+                val offset = if (childCoords == null || !isContentBeingScaled) {
+                    IntOffset.Zero
                 } else {
                     val placeholderBounds =
                         coords.localBoundingBoxOf(childCoords, clipBounds = false)
-                    placeable.place(placeholderBounds.topLeft.round())
+                    placeholderBounds.topLeft.round()
                 }
+                placeable.place(offset)
             }
         }
 
@@ -212,35 +214,39 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
                 }
                 children[key] = child
                 onDispose {
-                    child.placeholderCoordinates = null
+                    // TODO uncomment this once I figure out why the state is being re-initialized.
+                    //child.placeholderCoordinates = null
                     children -= key
                 }
             }
 
             child.setContent(content)
 
-            val childModifier = modifier
-                // TODO why isn't onPlaced working?
-                .onPlaced { child.placeholderCoordinates = it }
-                .onGloballyPositioned {
-                    child.placeholderCoordinates = it
-                }
+            // When the host is composing the content request the placeholder box to stay at the
+            // size the content measured before the animation started.
+            val placeholderSizeModifier = if (child === activeChild) {
+                childPlaceholderSize?.let { size ->
+                    with(LocalDensity.current) {
+                        Modifier.size(DpSize(size.width.toDp(), size.height.toDp()))
+                    }
+                } ?: Modifier
+            } else Modifier
 
-            // The active child will be composed by the host, so don't compose it here.
-            if (child === activeChild) {
-                // …but put a placeholder instead to reserve the space.
-                childPlaceholderSize?.run {
-                    Box(childModifier.size(
-                        with(LocalDensity.current) {
-                            DpSize(width.toDp(), height.toDp())
-                        }
-                    ))
+            Box(
+                modifier = modifier
+                    // TODO why isn't onPlaced working?
+                    .onPlaced { child.placeholderCoordinates = it }
+                    .onGloballyPositioned { child.placeholderCoordinates = it }
+                    .bringIntoViewRequester(child.bringIntoViewRequester)
+                    .then(placeholderSizeModifier),
+                propagateMinConstraints = true
+            ) {
+                // The active child is always composed directly by the host, so when that happens
+                // remove it from the composition here so the movable content is moved and not
+                // re-instantiated.
+                if (child !== activeChild) {
+                    child.MovableContent()
                 }
-            } else {
-                child.MovableContent(
-                    childModifier
-                        .bringIntoViewRequester(child.bringIntoViewRequester)
-                )
             }
         }
     }
