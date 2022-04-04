@@ -73,7 +73,7 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
                 Text("The ${star.name} System", Modifier.weight(1f), maxLines = 1)
             }
             Text(
-                if (planetUnderFinger != -1 && planets.isNotEmpty()) {
+                if (planetUnderFinger in planets.indices) {
                     "${planets[planetUnderFinger].name}, release to open."
                 } else {
                     "Tap or drag on the planets."
