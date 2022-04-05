@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import com.zachklipp.fractalnav.ZoomDirection.ZoomingOut
 
@@ -67,9 +66,8 @@ internal fun FractalNavHost(
     //  2. The layout behavior of Box ensures that the active child will be drawn over the content.
     Box(
         modifier = modifier
-            // TODO why isn't onPlaced working??
             .onPlaced { state.viewportCoordinates = it }
-            .onGloballyPositioned { state.viewportCoordinates = it },
+            .workaroundBoxOnPlacedBug(),
         propagateMinConstraints = true
     ) {
         if (state.composeContent) {
@@ -78,7 +76,7 @@ internal fun FractalNavHost(
                     modifier = Modifier
                         .then(state.contentZoomModifier)
                         .onPlaced { state.scaledContentCoordinates = it }
-                        .onGloballyPositioned { state.scaledContentCoordinates = it },
+                        .workaroundBoxOnPlacedBug(),
                     propagateMinConstraints = true
                 ) {
                     content(state)

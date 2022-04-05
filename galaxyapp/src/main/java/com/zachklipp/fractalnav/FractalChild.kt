@@ -23,7 +23,7 @@ internal class FractalChild(
     private val childState = FractalNavState() as FractalNavStateImpl
     private val childScope = ChildScope(childState)
     private var _content: (@Composable FractalNavChildScope.() -> Unit)? by mutableStateOf(null)
-    var placeholderCoordinates: LayoutCoordinates? = null
+    var placeholderCoordinates: LayoutCoordinates? by mutableStateOf(null)
     val bringIntoViewRequester = BringIntoViewRequester()
 
     /**
