@@ -8,6 +8,7 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
+import com.zachklipp.fractalnav.ZoomDirection.ZoomingOut
 
 /**
  * A container that can host special composables defined with [FractalNavScope.FractalNavChild] that
@@ -71,7 +72,7 @@ internal fun FractalNavHost(
             .onGloballyPositioned { state.viewportCoordinates = it },
         propagateMinConstraints = true
     ) {
-        if (!state.isFullyZoomedIn) {
+        if (state.composeContent) {
             contentStateHolder.SaveableStateProvider("fractal-nav-host") {
                 Box(
                     modifier = Modifier

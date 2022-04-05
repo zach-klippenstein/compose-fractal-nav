@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.*
+import com.zachklipp.fractalnav.ZoomDirection.ZoomingOut
 import com.zachklipp.galaxyapp.lerp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -37,6 +38,14 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
     val isFullyZoomedIn by derivedStateOf { zoomFactor == 1f }
     override var zoomDirection: ZoomDirection? by mutableStateOf(null)
         private set
+
+    /**
+     * When true, the nav hosts's content should be composed. This is false when a child is fully
+     * zoomed-in AND is not imminently starting to zoom out. We compose when starting to zoom out
+     * even before the [zoomFactor] animation has started to give the content a chance to initialize
+     * before starting the animation, to avoid jank caused by an extra long first-frame.
+     */
+    val composeContent: Boolean get() = !isFullyZoomedIn || zoomDirection == ZoomingOut
 
     var viewportCoordinates: LayoutCoordinates? = null
     var scaledContentCoordinates: LayoutCoordinates? by mutableStateOf(null)
@@ -192,8 +201,8 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
         content: @Composable FractalNavChildScope.() -> Unit
     ) {
         key(this, key) {
-            check(!isFullyZoomedIn) {
-                "FractalNavHost content shouldn't be composed when fully zoomed in."
+            check(composeContent) {
+                "FractalNavHost content shouldn't be composed when composeContent is false."
             }
 
             val child = remember {
@@ -261,7 +270,7 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
         // However, if we're currently zooming out of a child, and that same child requested to
         // be zoomed in again, we can cancel the zoom out and start zooming in immediately.
         if (activeChild != null &&
-            (activeChild !== requestedChild || zoomDirection != ZoomDirection.ZoomingOut)
+            (activeChild !== requestedChild || zoomDirection != ZoomingOut)
         ) {
             return
         }
@@ -293,19 +302,22 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
 
     override fun zoomOut() {
         // If already zooming or zoomed out, do nothing.
-        if (activeChild == null || zoomDirection == ZoomDirection.ZoomingOut) return
+        if (activeChild == null || zoomDirection == ZoomingOut) return
 
-        zoomDirection = ZoomDirection.ZoomingOut
+        zoomDirection = ZoomingOut
         coroutineScope.launch {
+            // Composing the parent for the first time can take some time. Wait a frame before
+            // animating to give it a chance to settle.
+            withFrameMillis {}
             try {
                 zoomFactorAnimatable.animateTo(0f, zoomAnimationSpecFactory())
             } finally {
                 // If we weren't cancelled by an opposing animation, jump to the end state.
-                if (zoomDirection == ZoomDirection.ZoomingOut) {
+                if (zoomDirection == ZoomingOut) {
                     activeChild = null
                     zoomDirection = null
-                    // Do this last since it can suspend and we want to make sure the other states are
-                    // updated asap.
+                    // Do this last since it can suspend and we want to make sure the other states
+                    // are updated asap.
                     zoomFactorAnimatable.snapTo(0f)
                 }
             }
