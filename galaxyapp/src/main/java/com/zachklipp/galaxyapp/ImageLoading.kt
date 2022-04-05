@@ -9,6 +9,7 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.withSaveLayer
@@ -34,6 +35,7 @@ fun NetworkImage(
     contentScale: ContentScale = ContentScale.FillWidth,
     alignment: Alignment = Alignment.Center,
     blendMode: BlendMode? = null,
+    colorFilter: ColorFilter? = null,
     cacheOriginal: Boolean = false,
 ) {
     if (cacheOriginal) {
@@ -56,6 +58,7 @@ fun NetworkImage(
             .build(),
         contentDescription = contentDescription,
         contentScale = contentScale,
+        colorFilter = colorFilter,
         alignment = alignment,
         modifier = modifier.then(blendMode?.let(Modifier::blendMode) ?: Modifier),
     )

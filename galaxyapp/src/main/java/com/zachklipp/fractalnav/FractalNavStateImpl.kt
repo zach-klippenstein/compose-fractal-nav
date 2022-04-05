@@ -49,6 +49,9 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
     var viewportCoordinates: LayoutCoordinates? = null
     var scaledContentCoordinates: LayoutCoordinates? by mutableStateOf(null)
 
+    override val viewportWidth: Int
+        get() = viewportCoordinates?.size?.width ?: 0
+
     override val hasActiveChild: Boolean get() = activeChild != null
     override val childZoomFactor: Float get() = zoomFactor
 

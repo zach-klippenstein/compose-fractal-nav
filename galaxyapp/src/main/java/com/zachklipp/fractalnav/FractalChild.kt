@@ -6,11 +6,16 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.constrainHeight
+import androidx.compose.ui.unit.constrainWidth
 
 internal interface FractalParent : FractalNavScope {
     val activeChild: FractalChild?
     val zoomDirection: ZoomDirection?
     val zoomAnimationSpecFactory: () -> AnimationSpec<Float>
+    val viewportWidth: Int
 
     fun zoomOut()
 }
@@ -81,6 +86,21 @@ internal class FractalChild(
                 state.zoomOut()
             }
             parent.zoomOut()
+        }
+
+        override fun Modifier.fillExpandedWidth(): Modifier = layout { measurable, constraints ->
+            val parentWidth = parent.viewportWidth
+            val parentWidthConstraints = constraints.copy(
+                minWidth = parentWidth,
+                maxWidth = parentWidth
+            )
+            val placeable = measurable.measure(parentWidthConstraints)
+            layout(
+                width = constraints.constrainWidth(placeable.width),
+                height = constraints.constrainHeight(placeable.height)
+            ) {
+                placeable.place(IntOffset.Zero)
+            }
         }
     }
 }

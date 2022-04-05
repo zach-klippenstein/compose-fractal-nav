@@ -65,7 +65,7 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
             Row(
                 verticalAlignment = CenterVertically,
                 modifier = Modifier
-                    .scaleByZoomFactor()
+                    .scaleLayoutByZoomFactor()
                     .alphaByZoomFactor()
             ) {
                 BackButton()
@@ -80,7 +80,7 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
                 },
                 maxLines = 1,
                 modifier = Modifier
-                    .scaleByZoomFactor()
+                    .scaleLayoutByZoomFactor()
                     .alphaByZoomFactor()
             )
         }
@@ -108,6 +108,15 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
             ) {
                 PlanetItem(planet)
             }
+        }
+
+        if (isActive) {
+            InfoText(
+                text = star.description,
+                modifier = Modifier
+                    .fillExpandedWidth()
+                    .alphaByZoomFactor()
+            )
         }
 
         // Empty spacer just to take up the bottom slot in the column.
