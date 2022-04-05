@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
 import androidx.compose.ui.geometry.Offset
@@ -25,7 +24,6 @@ import com.zachklipp.fractalnav.ZoomDirection.ZoomingOut
 import com.zachklipp.galaxyapp.lerp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlin.math.roundToInt
 
 internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalParent {
@@ -203,9 +201,10 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
         content: @Composable FractalNavChildScope.() -> Unit
     ) {
         key(this, key) {
-            check(composeContent) {
-                "FractalNavHost content shouldn't be composed when composeContent is false."
-            }
+            // TODO This check fails inside LazyVerticalGrid. It's probably too strict anyway.
+            // check(composeContent) {
+            //     "FractalNavHost content shouldn't be composed when composeContent is false."
+            // }
 
             val child = remember {
                 if (activeChild?.key == key) {

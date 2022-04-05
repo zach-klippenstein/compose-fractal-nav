@@ -71,9 +71,7 @@ private fun FractalNavChildScope.GalaxyChild(galaxy: Galaxy, universeInfo: Unive
         }
     }
 
-    Column(
-        modifier = if (isActive) Modifier.verticalScroll(scrollState) else Modifier
-    ) {
+    Column(modifier = if (isActive) Modifier.verticalScroll(scrollState) else Modifier) {
         GalaxyHero(galaxy, showBack = isFullyZoomedIn || zoomDirection == ZoomingIn)
 
         if (isActive) {
