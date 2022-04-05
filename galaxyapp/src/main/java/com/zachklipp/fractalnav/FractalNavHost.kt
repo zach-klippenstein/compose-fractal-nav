@@ -1,7 +1,6 @@
 package com.zachklipp.fractalnav
 
 import androidx.compose.animation.core.AnimationSpec
-import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.*
@@ -39,7 +38,7 @@ fun FractalNavHost(
  */
 sealed interface FractalNavState {
     companion object {
-        val DefaultZoomAnimationSpec: AnimationSpec<Float> = tween(2_000, easing = LinearEasing)
+        val DefaultZoomAnimationSpec: AnimationSpec<Float> = tween(1_000)
     }
 }
 
