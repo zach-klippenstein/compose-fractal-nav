@@ -10,7 +10,9 @@ https://user-images.githubusercontent.com/101754/161682976-66d138a0-b8b9-4fde-a3
 
 Like most navigation libraries, this one starts with a wrapper composable that defines the navigable area. It's called `FractalNavHost`. It provides a `FractalNavScope` to its content composable. Inside that block, you can define "zoomable" children with the `FractalNavChild` composable. Each child is identified with a string key, and you can zoom into a child by calling `zoomToChild()`.
 
-The content block of a `FractalNavChild` gets access to a few properties that describe whether or not it's zoomed in, how far it's zoomed, and a function that zooms it back out to its parent. It can also define its own children.
+The content block of a `FractalNavChild` gets access to a few properties that describe whether or not it's zoomed in, how far it's zoomed, and a function that zooms it back out to its parent. 
+
+Children can also define their own children, recursing as deep as you like. The library will only compose what's necessary to show the active child. Everything between the `FractalNavHost` and the `FractalNavChild` will be removed from the composition – even when multiple children are nested. When a child zooms back out, its parent content is composed again, with any state from `rememberSaveable`s restored.
 
 For more details, take a look at [`FractalNavScope` and `FractalNavChildScope`](galaxyapp/src/main/java/com/zachklipp/fractalnav/FractalNavScope.kt).
 
