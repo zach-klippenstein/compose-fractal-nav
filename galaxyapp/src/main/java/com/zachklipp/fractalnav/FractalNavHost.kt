@@ -66,7 +66,7 @@ internal fun FractalNavHost(
         .onGloballyPositioned { state.viewportCoordinates = it }
 
     if (!state.isFullyZoomedIn) {
-        contentStateHolder.SaveableStateProvider("fractal-nav-host-$currentCompositeKeyHash") {
+        contentStateHolder.SaveableStateProvider("fractal-nav-host") {
             Box(
                 modifier = rootModifier
                     .then(state.contentZoomModifier)
