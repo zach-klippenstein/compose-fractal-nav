@@ -2,13 +2,25 @@
 
 A proof-of-concept of a fractal/recursive navigation system.
 
-Instead of defining a bunch of top-level routes with navigation moving laterally between them, you define your navigation recursively. You can think of it like showing your entire composable UI at once, where certain parts can be zoomed-into. It's hard to explain and I'm writing this README after 3 straight days of hacking on my vacation, so easier to just show you:
+Instead of defining a bunch of top-level routes with navigation moving laterally between them, you define your navigation recursively. You can think of it like showing your entire composable UI at once, where certain parts can be zoomed-into. It's hard to explain and I'm writing this README after 3 straight days of hacking on my vacation, so easier to just show you. This is the app in this repo:
 
 https://user-images.githubusercontent.com/101754/161682976-66d138a0-b8b9-4fde-a3f6-059294a5225b.mp4
 
 ## API
 
-Here's a basic code sample, for something more complex see the code in this repo.
+Like most navigation libraries, this one starts with a wrapper composable that defines the navigable area. It's called `FractalNavHost`. It provides a `FractalNavScope` to its content composable. Inside that block, you can define "zoomable" children with the `FractalNavChild` composable. Each child is identified with a string key, and you can zoom into a child by calling `zoomToChild()`.
+
+The content block of a `FractalNavChild` gets access to a few properties that describe whether or not it's zoomed in, how far it's zoomed, and a function that zooms it back out to its parent. It can also define its own children.
+
+For more details, take a look at [`FractalNavScope` and `FractalNavChildScope`](galaxyapp/src/main/java/com/zachklipp/fractalnav/FractalNavScope.kt).
+
+## API sample
+
+Let's build this simple app:
+
+https://user-images.githubusercontent.com/101754/161687429-9aabfd7d-c722-48c3-a979-f25690a1684a.mp4
+
+Here's the code:
 
 ```kotlin
 // The host should wrap the root of your app.
