@@ -60,26 +60,34 @@ internal fun FractalNavHost(
     }
 
     val contentStateHolder = rememberSaveableStateHolder()
-    val rootModifier = modifier
-        // TODO why isn't onPlaced working??
-        .onPlaced { state.viewportCoordinates = it }
-        .onGloballyPositioned { state.viewportCoordinates = it }
 
-    if (!state.isFullyZoomedIn) {
-        contentStateHolder.SaveableStateProvider("fractal-nav-host") {
-            Box(
-                modifier = rootModifier
-                    .then(state.contentZoomModifier)
-                    .onPlaced { state.scaledContentCoordinates = it }
-                    .onGloballyPositioned { state.scaledContentCoordinates = it },
-                propagateMinConstraints = true
-            ) {
-                content(state)
+    // This box serves two purposes:
+    //  1. It defines what the viewport coordinates are, and gives us a place to put the modifier
+    //     to read them that won't become detached in the middle of zoom animations.
+    //  2. The layout behavior of Box ensures that the active child will be drawn over the content.
+    Box(
+        modifier = modifier
+            // TODO why isn't onPlaced working??
+            .onPlaced { state.viewportCoordinates = it }
+            .onGloballyPositioned { state.viewportCoordinates = it },
+        propagateMinConstraints = true
+    ) {
+        if (!state.isFullyZoomedIn) {
+            contentStateHolder.SaveableStateProvider("fractal-nav-host") {
+                Box(
+                    modifier = Modifier
+                        .then(state.contentZoomModifier)
+                        .onPlaced { state.scaledContentCoordinates = it }
+                        .onGloballyPositioned { state.scaledContentCoordinates = it },
+                    propagateMinConstraints = true
+                ) {
+                    content(state)
+                }
             }
         }
-    }
 
-    state.activeChild?.MovableContent(
-        modifier = if (state.isFullyZoomedIn) rootModifier else state.childZoomModifier
-    )
+        state.activeChild?.MovableContent(
+            modifier = if (state.isFullyZoomedIn) Modifier else state.childZoomModifier
+        )
+    }
 }

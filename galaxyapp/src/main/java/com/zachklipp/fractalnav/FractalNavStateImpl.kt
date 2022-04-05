@@ -76,7 +76,7 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
         }
 
     val contentZoomModifier
-        get() = if (activeChild != null && !isFullyZoomedIn) {
+        get() = if (activeChild != null) {
             Modifier
                 .graphicsLayer {
                     // Somehow, even though this modifier should immediately be removed when
