@@ -264,17 +264,17 @@ internal class FractalNavStateImpl : FractalNavState, FractalNavScope, FractalPa
 
     @OptIn(ExperimentalFoundationApi::class)
     override fun zoomToChild(key: String) {
-        val requestedChild = children.getOrElse(key) {
-            throw IllegalArgumentException("No child with key \"$key\".")
-        }
-
         // Can't zoom into a child while a different child is currently active.
         // However, if we're currently zooming out of a child, and that same child requested to
         // be zoomed in again, we can cancel the zoom out and start zooming in immediately.
         if (activeChild != null &&
-            (activeChild !== requestedChild || zoomDirection != ZoomingOut)
+            (activeChild?.key != key || zoomDirection != ZoomingOut)
         ) {
             return
+        }
+
+        val requestedChild = children.getOrElse(key) {
+            throw IllegalArgumentException("No child with key \"$key\".")
         }
         activeChild = requestedChild
 

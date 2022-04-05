@@ -13,5 +13,6 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "fractal-nav"
+include ':filebrowser'
 include ':fractalnav'
 include ':galaxyapp'

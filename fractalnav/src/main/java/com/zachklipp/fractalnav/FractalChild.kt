@@ -72,11 +72,9 @@ internal class FractalChild(
             get() = if (isActive) parent.zoomDirection else null
 
         override fun zoomToChild(key: String) {
-            // An inactive child should never have zoomed-in children, so if we're about to become
-            // inactive we need to switch to zooming in first.
-            if (zoomDirection == ZoomDirection.ZoomingOut) {
-                parent.zoomToChild(this@FractalChild.key)
-            }
+            // An inactive child should never have zoomed-in children, so if this child isn't
+            // already zoomed in we need to start zooming.
+            parent.zoomToChild(this@FractalChild.key)
             state.zoomToChild(key)
         }
 
