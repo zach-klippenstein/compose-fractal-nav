@@ -21,7 +21,6 @@ import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.*
 import com.zachklipp.fractalnav.ZoomDirection.ZoomingOut
-import com.zachklipp.galaxyapp.lerp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt

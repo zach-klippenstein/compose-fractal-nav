@@ -7,7 +7,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onPlaced
-import com.zachklipp.fractalnav.ZoomDirection.ZoomingOut
 
 /**
  * A container that can host special composables defined with [FractalNavScope.FractalNavChild] that

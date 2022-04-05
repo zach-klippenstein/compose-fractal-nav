@@ -1,4 +1,4 @@
-package com.zachklipp.fractalnav
+package com.zachklipp.galaxyapp
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
@@ -15,13 +15,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
+import com.zachklipp.fractalnav.FractalNavChildScope
+import com.zachklipp.fractalnav.FractalNavHost
+import com.zachklipp.fractalnav.FractalNavScope
 
 @Preview
 @Composable
 private fun FractalNavSample() {
     MaterialTheme(colors = darkColors()) {
         Surface {
-// The host should wrap the root of your app.
+            // The host should wrap the root of your app.
             FractalNavHost(Modifier.fillMaxSize()) {
                 Row(Modifier.wrapContentSize()) {
                     Text("Click ")

@@ -30,6 +30,7 @@ import com.zachklipp.fractalnav.FractalNavChildScope
 import com.zachklipp.fractalnav.FractalNavScope
 import com.zachklipp.fractalnav.ZoomDirection.ZoomingIn
 import com.zachklipp.fractalnav.ZoomDirection.ZoomingOut
+import com.zachklipp.fractalnav.lerp
 
 private val Galaxy.fractalKey get() = "galaxy-$name"
 
