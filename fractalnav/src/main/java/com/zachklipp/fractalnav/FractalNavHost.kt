@@ -70,10 +70,10 @@ internal fun FractalNavHost(
         propagateMinConstraints = true
     ) {
         if (state.composeContent) {
+            // Without this we get a crash after zoom-out about an index OOB by 1.
             contentStateHolder.SaveableStateProvider("fractal-nav-host") {
                 Box(
                     modifier = Modifier
-                        .then(state.contentZoomModifier)
                         .onPlaced { state.scaledContentCoordinates = it }
                         .workaroundBoxOnPlacedBug(),
                     propagateMinConstraints = true
@@ -84,7 +84,7 @@ internal fun FractalNavHost(
         }
 
         state.activeChild?.MovableContent(
-            modifier = if (state.isFullyZoomedIn) Modifier else state.childZoomModifier
+            modifier = if (state.isFullyZoomedIn) Modifier else Modifier
         )
     }
 }
