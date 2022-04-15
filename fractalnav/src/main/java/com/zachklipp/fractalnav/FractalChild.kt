@@ -4,6 +4,7 @@ import androidx.compose.animation.core.AnimationSpec
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.layout
@@ -47,7 +48,9 @@ internal class FractalChild(
     }
 
     fun setContent(content: @Composable FractalNavChildScope.() -> Unit) {
-        _content = content
+        if (Snapshot.withoutReadObservation { _content == null }) {
+            _content = content
+        }
     }
 
     @Suppress("NOTHING_TO_INLINE")
