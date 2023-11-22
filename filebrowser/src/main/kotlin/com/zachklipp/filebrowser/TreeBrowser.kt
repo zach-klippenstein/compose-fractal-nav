@@ -7,7 +7,11 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.zachklipp.fractalnav.*
+import com.zachklipp.fractalnav.FractalNavChildScope
+import com.zachklipp.fractalnav.FractalNavHost
+import com.zachklipp.fractalnav.FractalNavScope
+import com.zachklipp.fractalnav.FractalNavState
+import com.zachklipp.fractalnav.ZoomDirection
 import com.zachklipp.fractalnav.ZoomDirection.ZoomingIn
 
 @JvmInline
@@ -68,9 +72,11 @@ private fun <N> FractalNavScope.ParentNode(
                     { zoomToChild(nodeKey(node)) }
                 }
             }) { modifier ->
-                Crossfade(thumbnailType as ThumbnailType, modifier
-                    .fillMaxSize()
-                    .wrapContentSize()) { thumbnailType ->
+                Crossfade(
+                    thumbnailType as ThumbnailType, modifier
+                        .fillMaxSize()
+                        .wrapContentSize()
+                ) { thumbnailType ->
                     when (thumbnailType) {
                         ThumbnailType.Parent -> {
                             FractalNavChild(
@@ -92,6 +98,7 @@ private fun <N> FractalNavScope.ParentNode(
                                 }
                             }
                         }
+
                         is ThumbnailType.Leaf -> {
                             thumbnailType.content()
                         }

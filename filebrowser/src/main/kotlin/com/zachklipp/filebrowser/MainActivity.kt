@@ -3,7 +3,6 @@ package com.zachklipp.filebrowser
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import com.zachklipp.fractalnav.FractalNavState
 import com.zachklipp.filebrowser.ui.theme.FileBrowserTheme
 import okio.FileSystem
 import okio.Path.Companion.toOkioPath
