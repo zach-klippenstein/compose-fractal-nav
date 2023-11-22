@@ -18,8 +18,7 @@ fun FractalNavScope.Universe(universeInfo: UniverseInfo) {
     Column(horizontalAlignment = CenterHorizontally) {
         ListHeader("Galaxies")
 
-        @Suppress("NAME_SHADOWING")
-        Crossfade(galaxies) { galaxies ->
+        Crossfade(galaxies, label = "") { galaxies ->
             if (galaxies == null) {
                 CircularProgressIndicator()
             } else {

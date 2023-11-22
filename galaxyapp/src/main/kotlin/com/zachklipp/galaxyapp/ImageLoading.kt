@@ -46,7 +46,7 @@ fun NetworkImage(
             context.imageLoader.execute(
                 ImageRequest.Builder(context)
                     .data(url)
-                    .size(Dimension.Original, Dimension.Original)
+                    .size(Dimension.Undefined, Dimension.Undefined)
                     .build()
             )
         }

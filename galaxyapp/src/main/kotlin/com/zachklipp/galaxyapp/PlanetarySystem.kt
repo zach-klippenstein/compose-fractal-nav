@@ -43,7 +43,7 @@ fun <P> PlanetarySystem(
     planetContent: @Composable (P) -> Unit
 ) {
     val planetRadii = remember { mutableStateListOf<Float>() }
-    var selectedPlanet by remember { mutableStateOf(-1) }
+    var selectedPlanet by remember { mutableIntStateOf(-1) }
 
     // Keep the size of the list of radii in sync with the actual planets list so when the
     // onRadiusMeasured callback fires it's always exactly the right size.
@@ -114,7 +114,7 @@ fun <P> PlanetarySystem(
             .then(drawOrbitsModifier)
             .then(inputModifier)
     ) {
-        val transition = rememberInfiniteTransition()
+        val transition = rememberInfiniteTransition(label = "")
 
         val starAngle by animateRotation(20_000)
         val starTwinkleScale by transition.animateFloat(
@@ -123,7 +123,7 @@ fun <P> PlanetarySystem(
             animationSpec = infiniteRepeatable(
                 tween(500),
                 repeatMode = RepeatMode.Reverse
-            )
+            ), label = ""
         )
         Box(
             Modifier
@@ -176,7 +176,6 @@ fun <P> PlanetarySystem(
  * Works around the [scale] modifier not being used correctly in calculations.
  */
 private fun Modifier.scaleConstraints(factor: () -> Float): Modifier = layout { m, c ->
-    @Suppress("NAME_SHADOWING")
     val scale = factor()
     if (scale == 0f) {
         // Don't measure or place if it won't take any space anyway.
@@ -203,7 +202,7 @@ private fun Modifier.scaleConstraints(factor: () -> Float): Modifier = layout { 
  */
 @Composable
 fun animateRotation(duration: Int, scale: () -> Float = { 1f }): State<Float> {
-    val angle = rememberSaveable { mutableStateOf(0f) }
+    val angle = rememberSaveable { mutableFloatStateOf(0f) }
     val running by remember { derivedStateOf { scale() != 0f } }
     if (running) {
         LaunchedEffect(duration) {
@@ -213,8 +212,8 @@ fun animateRotation(duration: Int, scale: () -> Float = { 1f }): State<Float> {
                 withInfiniteAnimationFrameMillis { frame ->
                     if (previousTime == AnimationConstants.UnspecifiedTime) previousTime = frame
                     val angleChange =
-                        angle.value + degreesPerMilli * (frame - previousTime) * scale()
-                    angle.value = angleChange.mod(360f)
+                        angle.floatValue + degreesPerMilli * (frame - previousTime) * scale()
+                    angle.floatValue = angleChange.mod(360f)
                     previousTime = frame
                 }
             }

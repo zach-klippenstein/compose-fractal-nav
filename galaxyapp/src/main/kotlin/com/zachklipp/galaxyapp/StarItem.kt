@@ -55,7 +55,7 @@ private fun FractalNavChildScope.StarChild(star: Star, universeInfo: UniverseInf
     } else {
         emptyList()
     }
-    var planetUnderFinger by remember { mutableStateOf(-1) }
+    var planetUnderFinger by remember { mutableIntStateOf(-1) }
 
     Column(
         verticalArrangement = Arrangement.SpaceBetween,

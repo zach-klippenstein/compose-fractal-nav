@@ -86,7 +86,7 @@ fun RadialLayout(
         var totalWeight = 0f
 
         // Only consider nodes with parent data.
-        val (weighted, unweighted) = measurables
+        val (weighted, _) = measurables
             .mapNotNull {
                 val layoutData =
                     (it.parentData as? RadialLayoutParentData) ?: return@mapNotNull null

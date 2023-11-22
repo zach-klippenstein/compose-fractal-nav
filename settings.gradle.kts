@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 pluginManagement {
     repositories {
         gradlePluginPortal()
@@ -13,6 +15,6 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "fractal-nav"
-include ':filebrowser'
-include ':fractalnav'
-include ':galaxyapp'
+include(":filebrowser")
+include(":fractalnav")
+include(":galaxyapp")

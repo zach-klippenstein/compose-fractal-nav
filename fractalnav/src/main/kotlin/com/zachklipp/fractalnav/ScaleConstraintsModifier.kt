@@ -14,7 +14,6 @@ import kotlin.math.roundToInt
  * Works around the [scale] modifier not being used correctly in calculations.
  */
 internal fun Modifier.scaleLayout(factor: () -> Float): Modifier = layout { m, c ->
-    @Suppress("NAME_SHADOWING")
     val scale = factor()
     if (scale == 0f) {
         // Don't measure or place if it won't take any space anyway.
