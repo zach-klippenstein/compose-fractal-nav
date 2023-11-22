@@ -2,6 +2,6 @@
 <resources>
 
     <style name="Theme.Fractalnav" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">@color/black</item>
+        <item name="android:statusBarColor">@android:color/black</item>
     </style>
 </resources>
